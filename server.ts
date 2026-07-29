@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 
 async function startServer() {
@@ -22,9 +23,22 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+    const indexPath = path.join(distPath, "index.html");
+
     app.use(express.static(distPath));
+
     app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(500).send(`
+          <div style="font-family: sans-serif; padding: 2rem; text-align: center;">
+            <h2>Build folder missing or incomplete</h2>
+            <p>The file <code>dist/index.html</code> was not found on the server.</p>
+            <p>Please build the project (<code>npm run build</code>) locally or upload the compiled <code>dist/</code> folder to cPanel.</p>
+          </div>
+        `);
+      }
     });
   }
 
