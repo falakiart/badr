@@ -1011,6 +1011,11 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>قاعدة بيانات سحابية متصلة (Firebase Live Sync)</span>
+                  </div>
+
                   <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-2 rounded-xl text-xs">
                     <Filter className="w-3.5 h-3.5 text-slate-500" />
                     <select

@@ -1,0 +1,31 @@
+{
+  "entities": {
+    "CODOrder": {
+      "title": "CODOrder",
+      "description": "Cash on delivery customer order placed on the store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "customerCity": { "type": "string" },
+        "customerAddress": { "type": "string" },
+        "bundleId": { "type": "string" },
+        "bundleTitle": { "type": "string" },
+        "price": { "type": "number" },
+        "quantity": { "type": "number" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "shipped", "delivered", "cancelled"] },
+        "createdAt": { "type": "string" },
+        "trackingNumber": { "type": "string" }
+      },
+      "required": ["id", "customerName", "customerPhone", "customerCity", "customerAddress", "price", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": "CODOrder",
+      "description": "Customer COD orders"
+    }
+  }
+}
