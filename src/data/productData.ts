@@ -279,3 +279,10 @@ export const RECENT_SALES = [
   { name: 'Kawtar', city: 'Tangier', bundle: '1 Bottle (150ml)', timeAgo: '12 minutes ago' },
   { name: 'Zineb', city: 'Agadir', bundle: '3 Bottles (BUY 2 GET 1 FREE)', timeAgo: '15 minutes ago' },
 ];
+
+export const DEFAULT_PRODUCT_VIDEO = {
+  url: 'https://assets.mixkit.co/videos/preview/mixkit-woman-brushing-her-long-shiny-hair-41126-large.mp4',
+  title: 'شاهد طريقة الاستعمال والنتيجة الفورية على الشعر',
+  subtitle: 'شاهدي كيف تمنح رغوة الماوس بزيت الصبار والألوفيرا ترطيباً عميقاً ولمعاناً حريرياً بدون دهون في أقل من دقيقة واحدة.',
+};
+

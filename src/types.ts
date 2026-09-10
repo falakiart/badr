@@ -79,8 +79,23 @@ export interface ThemeConfig {
   showStockTimer: boolean;
   showLiveSales: boolean;
   showStickyBar: boolean;
+  showVideoSection?: boolean;
+  videoUrl?: string;
+  videoTitle?: string;
+  videoSubtitle?: string;
+  videoLoop?: boolean;
+  videoAutoplay?: boolean;
+  videoShowcaseMode?: boolean;
   freeShippingThresholdMAD: number;
   logoUrl?: string;
   logoText?: string;
   whatsappNumber?: string;
+}
+
+export interface SiteData {
+  galleryImages: GalleryImage[];
+  theme: ThemeConfig;
+  bundles: BundleOffer[];
+  reviewsList: Review[];
+  orders: CODOrder[];
 }

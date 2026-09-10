@@ -204,32 +204,7 @@ export const HeroProduct: React.FC<HeroProductProps> = ({
             </div>
           </div>
 
-          {/* Urgency Countdown Bar */}
-          {theme.showStockTimer && (
-            <div className="p-3.5 rounded-2xl bg-slate-900 text-white text-xs space-y-2 shadow-md">
-              <div className="flex items-center justify-between font-bold">
-                <span className="flex items-center gap-1.5 text-amber-400">
-                  <Clock className="w-4 h-4" /> {t.discountTimer}
-                </span>
-                <span className="font-mono text-sm tracking-wider text-amber-300">
-                  {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s
-                </span>
-              </div>
 
-              {/* Progress bar */}
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-amber-500 to-red-500 rounded-full transition-all duration-500" 
-                  style={{ width: `${PRODUCT_INFO.claimedPercentage}%` }}
-                />
-              </div>
-
-              <div className="flex justify-between text-[10px] text-slate-400">
-                <span>🔥 {t.stockClaimed}</span>
-                <span>{t.fastShippingNote}</span>
-              </div>
-            </div>
-          )}
 
           {/* Bundle Offer Cards Selection */}
           <div className="space-y-3">

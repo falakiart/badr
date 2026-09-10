@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { BundleOffer, CODOrder, Currency, GalleryImage, Language, Review, ThemeConfig } from './types';
-import { BUNDLE_OFFERS, REVIEWS_DATA } from './data/productData';
 import { Header } from './components/Header';
 import { WordPressCustomizer } from './components/WordPressCustomizer';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
@@ -13,10 +12,14 @@ import { HairQuizModal } from './components/HairQuizModal';
 import { ComparisonTable } from './components/ComparisonTable';
 import { CustomerReviews } from './components/CustomerReviews';
 import { FAQAccordion } from './components/FAQAccordion';
+import { ProductVideo } from './components/ProductVideo';
 import { StickyMobileBar } from './components/StickyMobileBar';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
 import { Footer } from './components/Footer';
+import { BUNDLE_OFFERS, REVIEWS_DATA, DEFAULT_PRODUCT_VIDEO } from './data/productData';
+import { getStoredMediaBlobUrl } from './utils/mediaStorage';
+import { fetchSiteData, saveSiteData, submitOrderToServer } from './utils/apiSync';
 
 const INITIAL_SAMPLE_ORDERS: CODOrder[] = [
   {
@@ -95,21 +98,32 @@ export default function App() {
   const [currency, setCurrency] = useState<Currency>('MAD');
   const [language, setLanguage] = useState<Language>('EN');
   
-  const [theme, setTheme] = useState<ThemeConfig>({
-    preset: 'botanical',
-    primaryColor: '#2F3E30',
-    accentColor: '#8AA48A',
-    bgColor: '#FDFCFB',
-    textColor: '#2D332D',
-    cardBg: '#F4F1ED',
-    showCodForm: true,
-    showStockTimer: true,
-    showLiveSales: true,
-    showStickyBar: true,
-    freeShippingThresholdMAD: 300,
-    logoText: 'vola.ma',
-    logoUrl: '',
-    whatsappNumber: '212600000000',
+  const [theme, setTheme] = useState<ThemeConfig>(() => {
+    const saved = localStorage.getItem('phytobotanica_theme');
+    const defaultTheme: ThemeConfig = {
+      preset: 'botanical',
+      primaryColor: '#2F3E30',
+      accentColor: '#8AA48A',
+      bgColor: '#FDFCFB',
+      textColor: '#2D332D',
+      cardBg: '#F4F1ED',
+      showCodForm: true,
+      showStockTimer: true,
+      showLiveSales: true,
+      showStickyBar: true,
+      showVideoSection: true,
+      videoUrl: DEFAULT_PRODUCT_VIDEO.url,
+      videoTitle: DEFAULT_PRODUCT_VIDEO.title,
+      videoSubtitle: DEFAULT_PRODUCT_VIDEO.subtitle,
+      videoLoop: true,
+      videoAutoplay: true,
+      videoShowcaseMode: true,
+      freeShippingThresholdMAD: 300,
+      logoText: 'vola.ma',
+      logoUrl: '',
+      whatsappNumber: '212600000000',
+    };
+    return saved ? { ...defaultTheme, ...JSON.parse(saved) } : defaultTheme;
   });
 
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
@@ -157,22 +171,88 @@ export default function App() {
     localStorage.setItem('phytobotanica_reviews', JSON.stringify(reviewsList));
   }, [reviewsList]);
 
+  useEffect(() => {
+    localStorage.setItem('phytobotanica_theme', JSON.stringify(theme));
+  }, [theme]);
+
+  // Restore persistent data from central server on startup
+  useEffect(() => {
+    fetchSiteData().then((serverData) => {
+      if (serverData) {
+        if (serverData.galleryImages && Array.isArray(serverData.galleryImages) && serverData.galleryImages.length > 0) {
+          setGalleryImages(serverData.galleryImages);
+        }
+        if (serverData.theme) {
+          setTheme((prev) => ({ ...prev, ...serverData.theme }));
+        }
+        if (serverData.bundles && Array.isArray(serverData.bundles) && serverData.bundles.length > 0) {
+          setBundles(serverData.bundles);
+        }
+        if (serverData.reviewsList && Array.isArray(serverData.reviewsList) && serverData.reviewsList.length > 0) {
+          setReviewsList(serverData.reviewsList);
+        }
+        if (serverData.orders && Array.isArray(serverData.orders) && serverData.orders.length > 0) {
+          setOrders(serverData.orders);
+        }
+      }
+    }).catch((err) => {
+      console.warn('Initial server sync error:', err);
+    });
+  }, []);
+
+  // Restore persistent uploaded video from IndexedDB if exists (offline fallback)
+  useEffect(() => {
+    getStoredMediaBlobUrl('uploaded_product_video').then((blobUrl) => {
+      if (blobUrl) {
+        setTheme((prev) => {
+          // Only use local blob if videoUrl is currently empty or default
+          if (!prev.videoUrl || prev.videoUrl.includes('mixkit')) {
+            return { ...prev, videoUrl: blobUrl };
+          }
+          return prev;
+        });
+      }
+    }).catch(() => {});
+  }, []);
+
   // Update document direction based on selected language
   useEffect(() => {
     document.documentElement.dir = language === 'AR' ? 'rtl' : 'ltr';
     document.documentElement.lang = language.toLowerCase();
   }, [language]);
 
+  const handleUpdateGalleryImages = (images: GalleryImage[]) => {
+    setGalleryImages(images);
+    saveSiteData({ galleryImages: images });
+  };
+
+  const handleUpdateBundles = (newBundles: BundleOffer[]) => {
+    setBundles(newBundles);
+    saveSiteData({ bundles: newBundles });
+  };
+
   const handleAddReview = (newReview: Review) => {
-    setReviewsList((prev) => [newReview, ...prev]);
+    setReviewsList((prev) => {
+      const next = [newReview, ...prev];
+      saveSiteData({ reviewsList: next });
+      return next;
+    });
   };
 
   const handleDeleteReview = (reviewId: string) => {
-    setReviewsList((prev) => prev.filter((r) => r.id !== reviewId));
+    setReviewsList((prev) => {
+      const next = prev.filter((r) => r.id !== reviewId);
+      saveSiteData({ reviewsList: next });
+      return next;
+    });
   };
 
   const handleUpdateTheme = (updated: Partial<ThemeConfig>) => {
-    setTheme((prev) => ({ ...prev, ...updated }));
+    setTheme((prev) => {
+      const nextTheme = { ...prev, ...updated };
+      saveSiteData({ theme: nextTheme });
+      return nextTheme;
+    });
   };
 
   const handleScrollToOrderForm = () => {
@@ -183,20 +263,37 @@ export default function App() {
   };
 
   const handleOrderSuccess = (order: CODOrder) => {
-    setOrders(prev => [order, ...prev]);
+    setOrders(prev => {
+      const nextOrders = [order, ...prev];
+      saveSiteData({ orders: nextOrders });
+      return nextOrders;
+    });
+    submitOrderToServer(order);
     setCompletedOrder(order);
   };
 
   const handleUpdateOrderStatus = (orderId: string, status: CODOrder['status']) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    setOrders(prev => {
+      const nextOrders = prev.map(o => o.id === orderId ? { ...o, status } : o);
+      saveSiteData({ orders: nextOrders });
+      return nextOrders;
+    });
   };
 
   const handleUpdateOrder = (updatedOrder: CODOrder) => {
-    setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+    setOrders(prev => {
+      const nextOrders = prev.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+      saveSiteData({ orders: nextOrders });
+      return nextOrders;
+    });
   };
 
   const handleDeleteOrder = (orderId: string) => {
-    setOrders(prev => prev.filter(o => o.id !== orderId));
+    setOrders(prev => {
+      const nextOrders = prev.filter(o => o.id !== orderId);
+      saveSiteData({ orders: nextOrders });
+      return nextOrders;
+    });
   };
 
   const handleAddSampleOrder = () => {
@@ -220,12 +317,17 @@ export default function App() {
       fullDate: 'Jul 29, 2026',
       status: 'pending'
     };
-    setOrders(prev => [sample, ...prev]);
+    setOrders(prev => {
+      const nextOrders = [sample, ...prev];
+      saveSiteData({ orders: nextOrders });
+      return nextOrders;
+    });
   };
 
   const handleClearAllOrders = () => {
     if (window.confirm('Are you sure you want to clear all orders?')) {
       setOrders([]);
+      saveSiteData({ orders: [] });
     }
   };
 
@@ -262,9 +364,9 @@ export default function App() {
         onAddSampleOrder={handleAddSampleOrder}
         onClearAllOrders={handleClearAllOrders}
         galleryImages={galleryImages}
-        onUpdateGalleryImages={setGalleryImages}
+        onUpdateGalleryImages={handleUpdateGalleryImages}
         bundles={bundles}
-        onUpdateBundles={setBundles}
+        onUpdateBundles={handleUpdateBundles}
         theme={theme}
         onUpdateTheme={handleUpdateTheme}
         currency={currency}
@@ -304,7 +406,15 @@ export default function App() {
           />
         )}
 
-        {/* 3. Ingredient Spotlight: Cactus Oil & Aloe Vera */}
+        {/* 3. Product Video Demonstration Section */}
+        <ProductVideo
+          language={language}
+          theme={theme}
+          onScrollToOrder={handleScrollToOrderForm}
+          onOpenAdmin={() => setIsAdminOpen(true)}
+        />
+
+        {/* 4. Ingredient Spotlight: Cactus Oil & Aloe Vera */}
         <IngredientSpotlight language={language} theme={theme} />
 
         {/* 4. Interactive Before & After Transformation Slider */}

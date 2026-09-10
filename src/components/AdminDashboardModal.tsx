@@ -2,10 +2,14 @@ import React, { useState } from 'react';
 import { 
   X, ShoppingBag, Image as ImageIcon, Tag, Palette, Check, Trash2, 
   Search, Filter, Plus, Phone, MapPin, DollarSign, Download, Sparkles, Eye, RefreshCw,
-  Lock, User, KeyRound, LogOut, ShieldCheck, MessageSquare, Star, CheckCircle2, MessageSquarePlus, Edit3, Save
+  Lock, User, KeyRound, LogOut, ShieldCheck, MessageSquare, Star, CheckCircle2, MessageSquarePlus, Edit3, Save,
+  Video, Play, Film, ExternalLink, Repeat, Volume2, Upload, FolderUp, FileVideo, FileImage, ArrowUpRight
 } from 'lucide-react';
 import { BundleOffer, CODOrder, Currency, GalleryImage, Review, ThemeConfig, ThemePreset } from '../types';
 import { formatPrice } from '../data/productData';
+import { parseVideoUrl } from './ProductVideo';
+import { compressImageFile, storeMediaBlob } from '../utils/mediaStorage';
+import { uploadMediaToServer } from '../utils/apiSync';
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
@@ -107,11 +111,30 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   onAddReview,
   onDeleteReview,
 }) => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'photos' | 'prices' | 'theme' | 'reviews'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'photos' | 'prices' | 'theme' | 'reviews' | 'video'>('orders');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<CODOrder | null>(null);
   const [editingOrder, setEditingOrder] = useState<CODOrder | null>(null);
+
+  // Media Center Sub-tab state & upload state
+  const [mediaSubTab, setMediaSubTab] = useState<'photos' | 'video'>('photos');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoUploadNotice, setPhotoUploadNotice] = useState<string | null>(null);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<string | null>(null);
+  const [videoUploadNotice, setVideoUploadNotice] = useState<string | null>(null);
+  const [uploadedVideoFileName, setUploadedVideoFileName] = useState<string | null>(null);
+
+  // Video state
+  const [videoUrlInput, setVideoUrlInput] = useState(theme.videoUrl || '');
+  const [videoTitleInput, setVideoTitleInput] = useState(theme.videoTitle || '');
+  const [videoSubtitleInput, setVideoSubtitleInput] = useState(theme.videoSubtitle || '');
+  const [showVideoInput, setShowVideoInput] = useState(theme.showVideoSection !== false);
+  const [videoLoopInput, setVideoLoopInput] = useState(theme.videoLoop !== false);
+  const [videoAutoplayInput, setVideoAutoplayInput] = useState(theme.videoAutoplay !== false);
+  const [videoShowcaseInput, setVideoShowcaseInput] = useState(theme.videoShowcaseMode !== false);
+  const [videoSaveNotice, setVideoSaveNotice] = useState(false);
 
   // Admin Review form state
   const [showAddReviewForm, setShowAddReviewForm] = useState(false);
@@ -248,6 +271,127 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     onUpdateGalleryImages(updated);
   };
 
+  const handlePhotoFileUpload = async (files: FileList | null, targetIndex?: number) => {
+    if (!files || files.length === 0) return;
+    setIsUploadingPhoto(true);
+    try {
+      if (targetIndex !== undefined) {
+        // Replacing a specific gallery photo
+        const file = files[0];
+        let photoUrl: string;
+        try {
+          photoUrl = await uploadMediaToServer(file);
+        } catch (upErr) {
+          console.warn('Server upload fallback to compressed base64:', upErr);
+          photoUrl = await compressImageFile(file, 1280, 0.88);
+        }
+
+        const updated = [...galleryImages];
+        updated[targetIndex] = {
+          ...updated[targetIndex],
+          url: photoUrl,
+          title: updated[targetIndex].title || file.name.replace(/\.[^/.]+$/, ''),
+        };
+        onUpdateGalleryImages(updated);
+        setPhotoUploadNotice(`تم رفع واستبدال الصورة #${targetIndex + 1} وحفظها في السيرفر لجميع الزوار!`);
+      } else {
+        // Adding new photo(s) to the gallery
+        const newImages: GalleryImage[] = [];
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          let photoUrl: string;
+          try {
+            photoUrl = await uploadMediaToServer(file);
+          } catch (upErr) {
+            console.warn('Server upload fallback to compressed base64:', upErr);
+            photoUrl = await compressImageFile(file, 1280, 0.88);
+          }
+          newImages.push({
+            id: `uploaded-${Date.now()}-${i}`,
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            url: photoUrl,
+            alt: file.name,
+          });
+        }
+        onUpdateGalleryImages([...galleryImages, ...newImages]);
+        setPhotoUploadNotice(`تم رفع ${newImages.length} صورة وحفظها في السيرفر لجميع الزوار بنجاح!`);
+      }
+      setTimeout(() => setPhotoUploadNotice(null), 5000);
+    } catch (err) {
+      console.error(err);
+      setPhotoUploadNotice('حدث خطأ أثناء معالجة الصورة، يرجى المحاولة مرة أخرى.');
+      setTimeout(() => setPhotoUploadNotice(null), 4000);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleDeleteGalleryImage = (indexToDelete: number) => {
+    if (galleryImages.length <= 1) {
+      alert('يجب أن تحتوي الصفحة على صورة واحدة على الأقل للمنتج');
+      return;
+    }
+    const updated = galleryImages.filter((_, idx) => idx !== indexToDelete);
+    onUpdateGalleryImages(updated);
+    setPhotoUploadNotice('تم حذف الصورة من المعرض وتحديث السيرفر');
+    setTimeout(() => setPhotoUploadNotice(null), 3000);
+  };
+
+  const handleSetMainPhoto = (indexToMain: number) => {
+    if (indexToMain === 0) return;
+    const target = galleryImages[indexToMain];
+    const filtered = galleryImages.filter((_, idx) => idx !== indexToMain);
+    onUpdateGalleryImages([target, ...filtered]);
+    setPhotoUploadNotice('تم تعيين الصورة كصورة رئيسية أولى وتحديث السيرفر لجميع الزوار!');
+    setTimeout(() => setPhotoUploadNotice(null), 3000);
+  };
+
+  const handleVideoFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('video/')) {
+      alert('يرجى اختيار ملف فيديو صالح بصيغة MP4 أو WebM أو MOV');
+      return;
+    }
+    setIsUploadingVideo(true);
+    const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
+    setVideoUploadProgress(`جاري رفع الفيديو إلى السيرفر (${sizeInMB} MB)...`);
+    setUploadedVideoFileName(`${file.name} (${sizeInMB} MB)`);
+
+    try {
+      const serverUrl = await uploadMediaToServer(file);
+      setVideoUrlInput(serverUrl);
+
+      onUpdateTheme({
+        videoUrl: serverUrl,
+        videoTitle: videoTitleInput.trim() || 'شاهد روعة المنتج والنتيجة الفورية',
+        videoSubtitle: videoSubtitleInput.trim(),
+        showVideoSection: true,
+        videoLoop: videoLoopInput,
+        videoAutoplay: videoAutoplayInput,
+        videoShowcaseMode: videoShowcaseInput,
+      });
+
+      storeMediaBlob('uploaded_product_video', file).catch(() => {});
+
+      setVideoUploadNotice(`تم رفع وتثبيت الفيديو على السيرفر بنجاح (${file.name})! سيظهر الآن لأي زائر جديد يدخل إلى الموقع.`);
+      setTimeout(() => setVideoUploadNotice(null), 6000);
+    } catch (err) {
+      console.error('Video upload error:', err);
+      const blobUrl = await storeMediaBlob('uploaded_product_video', file);
+      setVideoUrlInput(blobUrl);
+      onUpdateTheme({
+        videoUrl: blobUrl,
+        showVideoSection: true,
+      });
+      setVideoUploadNotice('تم حفظ الفيديو محلياً!');
+      setTimeout(() => setVideoUploadNotice(null), 4000);
+    } finally {
+      setIsUploadingVideo(false);
+      setVideoUploadProgress(null);
+    }
+  };
+
   const handleUpdateBundleField = (index: number, field: keyof BundleOffer, value: any) => {
     const updated = [...bundles];
     updated[index] = { ...updated[index], [field]: value };
@@ -276,6 +420,338 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const renderVideoSectionContent = () => {
+    return (
+      <div className="space-y-6">
+        {/* Banner */}
+        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl text-xs text-emerald-950 flex items-start gap-3">
+          <Film className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="font-extrabold text-sm text-emerald-900">
+              رفع وتغيير فيديو المنتج / Upload Product Video
+            </h4>
+            <p className="text-emerald-800 leading-relaxed">
+              يمكنك رفع فيديو استعراضي مباشر من هاتفك أو حاسوبك (MP4 / WebM / MOV)، أو وضع رابط من يوتيوب/فيميو. يعمل الفيديو بتنسيق استعراضي فوري (Showcase Reel) سلس وتكرار تلقائي ليجذب الزبائن ويعزز المبيعات.
+            </p>
+          </div>
+        </div>
+
+        {/* Success / Alert notice */}
+        {videoUploadNotice && (
+          <div className="bg-emerald-100 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl text-xs font-bold flex items-center justify-between animate-in fade-in">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+              {videoUploadNotice}
+            </span>
+            <button
+              onClick={() => setVideoUploadNotice(null)}
+              className="text-emerald-700 hover:text-emerald-950 font-black px-1"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Video Upload Dropzone */}
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleVideoFileUpload(e.dataTransfer.files);
+          }}
+          className="bg-white p-6 rounded-3xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/20 hover:bg-emerald-50/40 transition text-center space-y-3 relative group"
+        >
+          <input
+            type="file"
+            id="admin-video-file-picker"
+            accept="video/mp4,video/webm,video/quicktime,video/*"
+            className="hidden"
+            onChange={(e) => handleVideoFileUpload(e.target.files)}
+          />
+
+          <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-sm group-hover:scale-105 transition">
+            <FileVideo className="w-7 h-7" />
+          </div>
+
+          <div className="space-y-1">
+            <h3 className="font-extrabold text-sm text-slate-900">
+              رفع فيديو جديد من هاتفك أو حاسوبك (Télécharger la vidéo)
+            </h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              اضغط على الزر لاختيار ملف فيديو (MP4, WebM, MOV) أو اسحبه هنا مباشرة. سيتم حفظه وتشغيله فوراً على الموقع!
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+            <label
+              htmlFor="admin-video-file-picker"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs cursor-pointer shadow-md transition"
+            >
+              <FolderUp className="w-4 h-4" />
+              <span>اختيار ملف فيديو من الجهاز (Upload Video MP4)</span>
+            </label>
+          </div>
+
+          {isUploadingVideo && (
+            <div className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-2 animate-pulse pt-2">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>{videoUploadProgress || 'جاري معالجة وتثبيت الفيديو...'}</span>
+            </div>
+          )}
+
+          {uploadedVideoFileName && !isUploadingVideo && (
+            <div className="text-[11px] font-bold text-slate-600 bg-slate-100/90 border border-slate-200 py-1.5 px-3 rounded-lg inline-flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+              <span>الملف المرفوع حالياً: {uploadedVideoFileName}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Video Settings Form */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <Video className="w-4 h-4 text-emerald-600" />
+              <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-800">
+                إعدادات عرض الفيديو والنصوص
+              </h3>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <span className="text-xs font-bold text-slate-600">إظهار قسم الفيديو على الموقع:</span>
+              <input
+                type="checkbox"
+                checked={showVideoInput}
+                onChange={(e) => setShowVideoInput(e.target.checked)}
+                className="w-4 h-4 accent-emerald-600 rounded"
+              />
+            </label>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-extrabold text-slate-800 block mb-1">
+                رابط الفيديو الحالي / Video URL (أو مسار الملف المرفوع)
+              </label>
+              <input
+                type="text"
+                value={videoUrlInput}
+                onChange={(e) => setVideoUrlInput(e.target.value)}
+                placeholder="https://... أو رابط يوتيوب أو ملف MP4"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-xs font-mono text-slate-800 outline-none"
+              />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                ملاحظة: يمكنك إما رفع ملف فيديو من جهازك أعلاه أو كتابة رابط فيديو مباشر (MP4, YouTube, Vimeo).
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-slate-800 block">
+                  عنوان قسم الفيديو / Video Title
+                </label>
+                <input
+                  type="text"
+                  value={videoTitleInput}
+                  onChange={(e) => setVideoTitleInput(e.target.value)}
+                  placeholder="شاهد طريقة الاستعمال والنتيجة الفورية على الشعر"
+                  className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs font-medium text-slate-900 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-slate-800 block">
+                  وصف تحت العنوان / Subtitle
+                </label>
+                <input
+                  type="text"
+                  value={videoSubtitleInput}
+                  onChange={(e) => setVideoSubtitleInput(e.target.value)}
+                  placeholder="شاهدي كيف تمنح رغوة الماوس ترطيباً عميقاً..."
+                  className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs font-medium text-slate-900 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Video Playback Options */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-50 cursor-pointer transition">
+                <input
+                  type="checkbox"
+                  checked={videoShowcaseInput}
+                  onChange={(e) => setVideoShowcaseInput(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-emerald-600 rounded"
+                />
+                <div className="text-xs space-y-0.5">
+                  <div className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>فيديو استعراضي (Showcase)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    مظهر سينمائي نقي بدون أشرطة تحكم مزعجة مع أزرار لمس ناعمة.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50 cursor-pointer transition">
+                <input
+                  type="checkbox"
+                  checked={videoLoopInput}
+                  onChange={(e) => setVideoLoopInput(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-emerald-600 rounded"
+                />
+                <div className="text-xs space-y-0.5">
+                  <div className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                    <Repeat className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>تشغيل مستمر متكرر (Loop)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    يعيد تشغيل الفيديو تلقائياً وبشكل مستمر دون توقف.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-50 cursor-pointer transition">
+                <input
+                  type="checkbox"
+                  checked={videoAutoplayInput}
+                  onChange={(e) => setVideoAutoplayInput(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-emerald-600 rounded"
+                />
+                <div className="text-xs space-y-0.5">
+                  <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                    <Play className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>تشغيل فوري تلقائي (Autoplay)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    يبدأ تشغيل الفيديو تلقائياً فور نزول الزائر للقسم.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-500">نماذج سريعة جاهزة:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setVideoUrlInput('https://assets.mixkit.co/videos/preview/mixkit-woman-brushing-her-long-shiny-hair-41126-large.mp4');
+                }}
+                className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+              >
+                💆 فيديو تجريبي لشعر انسيابي (MP4)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setVideoUrlInput('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+                }}
+                className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+              >
+                ▶️ تجربة رابط YouTube
+              </button>
+            </div>
+
+            {/* Save Button */}
+            <div className="pt-3 flex items-center justify-between border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateTheme({
+                    videoUrl: videoUrlInput.trim(),
+                    videoTitle: videoTitleInput.trim(),
+                    videoSubtitle: videoSubtitleInput.trim(),
+                    showVideoSection: showVideoInput,
+                    videoLoop: videoLoopInput,
+                    videoAutoplay: videoAutoplayInput,
+                    videoShowcaseMode: videoShowcaseInput,
+                  });
+                  setVideoSaveNotice(true);
+                  setTimeout(() => setVideoSaveNotice(false), 3500);
+                }}
+                className="px-6 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs flex items-center gap-2 shadow-md transition"
+              >
+                <Save className="w-4 h-4" />
+                <span>حفظ وتطبيق الفيديو على الموقع / Save Video</span>
+              </button>
+
+              {videoSaveNotice && (
+                <span className="text-xs font-extrabold text-emerald-700 flex items-center gap-1.5 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4" /> تم حفظ وتطبيق الفيديو على الموقع بنجاح!
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Live Preview Container */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+              <Eye className="w-4 h-4 text-emerald-600" /> معاينة مباشرة لمشغل الفيديو على الموقع / Live Preview
+            </h4>
+            <span className="text-[11px] text-slate-400">
+              {videoShowcaseInput ? '✨ وضع استعراضي (Showcase)' : 'مشغل قياسي'} • {videoLoopInput ? '🔁 Loop' : ''}
+            </span>
+          </div>
+
+          <div className="relative rounded-2xl overflow-hidden bg-slate-950 aspect-video shadow-inner max-w-2xl mx-auto border-2 border-slate-200">
+            {(() => {
+              const previewParsed = parseVideoUrl(
+                videoUrlInput || 'https://assets.mixkit.co/videos/preview/mixkit-woman-brushing-her-long-shiny-hair-41126-large.mp4',
+                videoLoopInput,
+                videoAutoplayInput,
+                videoShowcaseInput
+              );
+              if (previewParsed.type === 'youtube') {
+                return (
+                  <iframe
+                    src={previewParsed.src}
+                    title="Preview Video"
+                    className="w-full h-full border-0 absolute inset-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                );
+              }
+              if (previewParsed.type === 'vimeo') {
+                return (
+                  <iframe
+                    src={previewParsed.src}
+                    title="Preview Video"
+                    className="w-full h-full border-0 absolute inset-0"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                  />
+                );
+              }
+              if (previewParsed.type === 'html5') {
+                return (
+                  <video
+                    src={previewParsed.src}
+                    controls={!videoShowcaseInput}
+                    loop={videoLoopInput}
+                    autoPlay={videoAutoplayInput}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-cover sm:object-contain"
+                  />
+                );
+              }
+              return (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-6 text-center">
+                  <Video className="w-10 h-10 mb-2 text-slate-600" />
+                  <span className="text-xs font-bold">يرجى رفع فيديو أو إدخال رابط فيديو صالح</span>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -370,7 +846,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             }`}
           >
             <ImageIcon className="w-4 h-4" />
-            <span>2. Photos & Gallery / الصور</span>
+            <span>2. Media / الصور والفيديو (تغيير ورفع)</span>
           </button>
 
           <button
@@ -407,6 +883,18 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           >
             <MessageSquare className="w-4 h-4" />
             <span>5. Reviews / إدارة الآراء ({reviewsList.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('video')}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-2 ${
+              activeTab === 'video'
+                ? 'bg-emerald-700 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Video className="w-4 h-4" />
+            <span>6. Video / رفع وتعديل الفيديو</span>
           </button>
         </div>
 
@@ -581,91 +1069,235 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: PHOTOS & GALLERY MANAGEMENT */}
+          {/* TAB 2: PHOTOS & MEDIA MANAGEMENT */}
           {activeTab === 'photos' && (
             <div className="space-y-6">
               
-              <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl text-xs text-emerald-900 flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-extrabold">Instant Photo & Gallery Manager</h4>
-                  <p className="mt-0.5 text-emerald-800">
-                    Update the main product hero gallery photos live on the page! You can paste any image URL or select from our curated hair mousse library presets below.
-                  </p>
-                </div>
+              {/* Media Sub-Tabs Switcher */}
+              <div className="bg-slate-200/80 p-1.5 rounded-2xl flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMediaSubTab('photos')}
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+                    mediaSubTab === 'photos'
+                      ? 'bg-white text-emerald-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <ImageIcon className="w-4 h-4 text-emerald-600" />
+                  <span>📸 صور المعرض والمنتج ({galleryImages.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaSubTab('video')}
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+                    mediaSubTab === 'video'
+                      ? 'bg-white text-emerald-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Film className="w-4 h-4 text-emerald-600" />
+                  <span>🎬 فيديو المنتج الاستعراضي (Showcase Video)</span>
+                </button>
               </div>
 
-              {/* Editable Hero Gallery Images */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {galleryImages.map((img, idx) => (
-                  <div key={img.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                        Gallery Image #{idx + 1}
+              {mediaSubTab === 'photos' ? (
+                <div className="space-y-6">
+                  {/* Photo Upload Notice */}
+                  {photoUploadNotice && (
+                    <div className="bg-emerald-100 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl text-xs font-bold flex items-center justify-between animate-in fade-in">
+                      <span className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                        {photoUploadNotice}
                       </span>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                        {img.title}
+                      <button
+                        onClick={() => setPhotoUploadNotice(null)}
+                        className="text-emerald-700 hover:text-emerald-950 font-black px-1"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Dropzone for Uploading New Photos from Phone/PC */}
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handlePhotoFileUpload(e.dataTransfer.files);
+                    }}
+                    className="bg-white p-6 rounded-3xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/20 hover:bg-emerald-50/40 transition text-center space-y-3 relative group"
+                  >
+                    <input
+                      type="file"
+                      id="admin-new-photos-input"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handlePhotoFileUpload(e.target.files)}
+                      className="hidden"
+                    />
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-sm group-hover:scale-105 transition">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-extrabold text-sm text-slate-800">
+                        رفع صور جديدة للمنتج من الهاتف أو الحاسوب (Télécharger les photos)
+                      </h3>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                        اسحب الصور هنا أو اضغط لاختيار ملفات من جهازك (JPG, PNG, WEBP). يتم ضغطها وتحسين جودتها تلقائياً لتسريع تحميل المتجر.
+                      </p>
+                    </div>
+                    <div className="pt-1">
+                      <label
+                        htmlFor="admin-new-photos-input"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs cursor-pointer shadow-md transition"
+                      >
+                        <FolderUp className="w-4 h-4" />
+                        <span>تصفح واختيار صور من الجهاز</span>
+                      </label>
+                    </div>
+                    {isUploadingPhoto && (
+                      <div className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-2 animate-pulse pt-2">
+                        <RefreshCw className="w-4 h-4 animate-spin" /> جاري معالجة ورفع الصور إلى الموقع...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Active Gallery Images with direct change buttons */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-emerald-600" />
+                        <span>الصور الحالية على الموقع ({galleryImages.length})</span>
+                      </h3>
+                      <span className="text-[11px] text-slate-500">
+                        يمكنك استبدال أي صورة فوراً من جهازك أو مسحها أو جعلها الصورة الأولى
                       </span>
                     </div>
 
-                    <div className="flex gap-3 items-center">
-                      <div className="w-20 h-20 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
-                        <img src={img.url} alt={img.alt} className="w-full h-full object-cover" />
-                      </div>
-                      
-                      <div className="flex-1 space-y-2 text-xs">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Image Title / Caption</label>
-                          <input
-                            type="text"
-                            value={img.title}
-                            onChange={(e) => handleUpdateImage(idx, 'title', e.target.value)}
-                            className="w-full p-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-800"
-                          />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {galleryImages.map((img, idx) => (
+                        <div key={img.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 relative group">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[11px] font-black px-2.5 py-0.5 rounded-lg ${
+                                idx === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {idx === 0 ? '⭐ الصورة الرئيسية #1' : `صورة #${idx + 1}`}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">{img.title}</span>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              {idx > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetMainPhoto(idx)}
+                                  className="px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-bold transition flex items-center gap-1"
+                                  title="تعيين هذه الصورة في الواجهة الأولى"
+                                >
+                                  ⭐ الأولى
+                                </button>
+                              )}
+                              {galleryImages.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteGalleryImage(idx)}
+                                  className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition"
+                                  title="حذف هذه الصورة من المعرض"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3 items-start">
+                            <div className="w-24 h-24 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0 relative group/thumb">
+                              <img src={img.url} alt={img.alt} className="w-full h-full object-cover" />
+                              <label
+                                htmlFor={`replace-img-${idx}`}
+                                className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center text-white text-[10px] font-bold cursor-pointer transition p-1 text-center"
+                              >
+                                <Upload className="w-4 h-4 mb-0.5" />
+                                <span>تغيير</span>
+                              </label>
+                              <input
+                                type="file"
+                                id={`replace-img-${idx}`}
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handlePhotoFileUpload(e.target.files, idx)}
+                              />
+                            </div>
+
+                            <div className="flex-1 space-y-2 text-xs">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-0.5">عنوان / وصف الصورة</label>
+                                <input
+                                  type="text"
+                                  value={img.title}
+                                  onChange={(e) => handleUpdateImage(idx, 'title', e.target.value)}
+                                  className="w-full p-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-800"
+                                />
+                              </div>
+
+                              <div className="pt-1 flex items-center gap-2">
+                                <label
+                                  htmlFor={`replace-img-btn-${idx}`}
+                                  className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-extrabold text-[11px] text-center cursor-pointer border border-emerald-200 transition flex items-center justify-center gap-1.5"
+                                >
+                                  <Upload className="w-3.5 h-3.5" />
+                                  <span>تغيير الصورة من الجهاز</span>
+                                </label>
+                                <input
+                                  type="file"
+                                  id={`replace-img-btn-${idx}`}
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => handlePhotoFileUpload(e.target.files, idx)}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Image URL</label>
-                          <input
-                            type="text"
-                            value={img.url}
-                            onChange={(e) => handleUpdateImage(idx, 'url', e.target.value)}
-                            className="w-full p-2 rounded-lg border border-slate-200 text-xs font-mono text-slate-700"
-                          />
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
 
-              {/* Preset Gallery Photos Picker */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3">
-                <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-emerald-700" />
-                  <span>Choose from Curated Preset Photos Library</span>
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Click any preset image below to apply it to your main product image (Gallery #1):
-                </p>
+                  {/* Preset Gallery Photos Picker */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3">
+                    <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-emerald-700" />
+                      <span>اختيار من مكتبة الصور الجاهزة / Curated Presets</span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      اضغط على أي صورة جاهزة لتطبيقها فوراً كصورة رئيسية للمنتج:
+                    </p>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                  {PRESET_PHOTOS.map((preset, pIdx) => (
-                    <button
-                      key={pIdx}
-                      type="button"
-                      onClick={() => handleUpdateImage(0, 'url', preset.url)}
-                      className="group text-left space-y-1.5 focus:outline-none"
-                    >
-                      <div className="aspect-square rounded-xl bg-slate-100 overflow-hidden border border-slate-200 group-hover:border-emerald-600 transition group-hover:shadow-md">
-                        <img src={preset.url} alt={preset.title} className="w-full h-full object-cover group-hover:scale-110 transition duration-300" />
-                      </div>
-                      <span className="block text-[10px] font-bold text-slate-700 group-hover:text-emerald-700 truncate">
-                        {preset.title}
-                      </span>
-                    </button>
-                  ))}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                      {PRESET_PHOTOS.map((preset, pIdx) => (
+                        <button
+                          key={pIdx}
+                          type="button"
+                          onClick={() => handleUpdateImage(0, 'url', preset.url)}
+                          className="group text-left space-y-1.5 focus:outline-none"
+                        >
+                          <div className="aspect-square rounded-xl bg-slate-100 overflow-hidden border border-slate-200 group-hover:border-emerald-600 transition group-hover:shadow-md">
+                            <img src={preset.url} alt={preset.title} className="w-full h-full object-cover group-hover:scale-110 transition duration-300" />
+                          </div>
+                          <span className="block text-[10px] font-bold text-slate-700 group-hover:text-emerald-700 truncate">
+                            {preset.title}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Video Sub-tab view inside Media tab */
+                renderVideoSectionContent()
+              )}
 
             </div>
           )}
@@ -1319,6 +1951,9 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
             </div>
           )}
+
+          {/* TAB 6: PRODUCT VIDEO MANAGER */}
+          {activeTab === 'video' && renderVideoSectionContent()}
 
         </div>
 
