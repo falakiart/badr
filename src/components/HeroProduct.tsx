@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Star, ShieldCheck, Truck, RotateCcw, Flame, Check, Sparkles, Clock, Droplets, Leaf, Heart, Share2, Award } from 'lucide-react';
+import { 
+  Star, ShieldCheck, Truck, RotateCcw, Flame, Check, Sparkles, Clock, 
+  Droplets, Leaf, Heart, Share2, Award, Maximize2, X, ChevronLeft, ChevronRight,
+  ZoomIn, Scan, CheckCircle2
+} from 'lucide-react';
 import { BundleOffer, Currency, GalleryImage, Language, ThemeConfig } from '../types';
 import { BUNDLE_OFFERS, DEFAULT_GALLERY_IMAGES, formatPrice, PRODUCT_INFO } from '../data/productData';
 import { getTranslation } from '../data/translations';
@@ -30,6 +34,21 @@ export const HeroProduct: React.FC<HeroProductProps> = ({
   const t = getTranslation(language);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState({ hours: 3, minutes: 42, seconds: 15 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Aspect ratio & fit mode (defaults to 9:16 and contain for full uncropped photos)
+  const [currentAspect, setCurrentAspect] = useState<'9:16' | '4:5' | '1:1' | '16:9'>(
+    theme.imageAspectRatio || '9:16'
+  );
+  const [currentFit, setCurrentFit] = useState<'contain' | 'cover'>(
+    theme.imageFit || 'contain'
+  );
+
+  // Sync when theme props change
+  useEffect(() => {
+    if (theme.imageAspectRatio) setCurrentAspect(theme.imageAspectRatio);
+    if (theme.imageFit) setCurrentFit(theme.imageFit);
+  }, [theme.imageAspectRatio, theme.imageFit]);
 
   const imagesToDisplay = galleryImages && galleryImages.length > 0 ? galleryImages : DEFAULT_GALLERY_IMAGES;
   
@@ -40,7 +59,29 @@ export const HeroProduct: React.FC<HeroProductProps> = ({
     }
   }, [imagesToDisplay.length, activeImageIndex]);
 
-  const currentImage = imagesToDisplay[activeImageIndex] || imagesToDisplay[0] || { url: '', alt: '' };
+  const currentImage: GalleryImage = imagesToDisplay[activeImageIndex] || imagesToDisplay[0] || { id: '', url: '', alt: '', title: '' };
+
+  const getAspectClass = () => {
+    switch (currentAspect) {
+      case '9:16':
+        return 'aspect-[9/16] max-h-[640px] sm:max-h-[680px] w-full max-w-[440px] mx-auto';
+      case '4:5':
+        return 'aspect-[4/5] max-h-[620px] w-full mx-auto';
+      case '16:9':
+        return 'aspect-[16/9] w-full';
+      case '1:1':
+      default:
+        return 'aspect-square max-h-[580px] w-full mx-auto';
+    }
+  };
+
+  const handleNextImage = () => {
+    setActiveImageIndex((prev) => (prev + 1) % imagesToDisplay.length);
+  };
+
+  const handlePrevImage = () => {
+    setActiveImageIndex((prev) => (prev - 1 + imagesToDisplay.length) % imagesToDisplay.length);
+  };
 
   // Urgency Timer Tick
   useEffect(() => {
@@ -70,34 +111,118 @@ export const HeroProduct: React.FC<HeroProductProps> = ({
           <div className="relative rounded-3xl overflow-hidden bg-white border border-gray-100 shadow-xl group">
             
             {/* Top Badges Overlay */}
-            <div className="absolute top-4 left-4 z-10 flex flex-wrap gap-2">
-              <span className="bg-emerald-700 text-white text-xs font-extrabold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1">
-                <Leaf className="w-3.5 h-3.5" /> 100% Organic Extracts
+            <div className="absolute top-3 left-3 z-20 flex flex-wrap gap-1.5 pointer-events-none">
+              <span className="bg-emerald-700/95 backdrop-blur-sm text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1">
+                <Leaf className="w-3 h-3" /> 100% طبيعي
               </span>
-              <span className="bg-amber-500 text-white text-xs font-extrabold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1">
-                <Award className="w-3.5 h-3.5" /> Best Seller 2026
+              <span className="bg-amber-500/95 backdrop-blur-sm text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1">
+                <Award className="w-3 h-3" /> الأكثر مبيعاً
               </span>
             </div>
 
-            <div className="aspect-square w-full relative overflow-hidden bg-slate-50 flex items-center justify-center">
+            {/* Quick View Controls: Fit & Ratio Switcher (Top Right) */}
+            <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 bg-black/60 backdrop-blur-md p-1 rounded-2xl shadow-lg border border-white/20">
+              {/* Ratio Selector Buttons */}
+              <button
+                type="button"
+                onClick={() => setCurrentAspect(currentAspect === '9:16' ? '4:5' : currentAspect === '4:5' ? '1:1' : '9:16')}
+                title="تغيير أبعاد الصورة (9:16 / 4:5 / 1:1)"
+                className="px-2 py-1 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[10px] font-black transition flex items-center gap-1"
+              >
+                <Scan className="w-3 h-3 text-emerald-300" />
+                <span>{currentAspect === '9:16' ? '9:16 (كاملة)' : currentAspect === '4:5' ? '4:5' : '1:1'}</span>
+              </button>
+
+              {/* Fit Toggle (Contain vs Cover) */}
+              <button
+                type="button"
+                onClick={() => setCurrentFit(currentFit === 'contain' ? 'cover' : 'contain')}
+                title="إظهار الصورة كاملة أو ملء الإطار"
+                className={`px-2 py-1 rounded-xl text-[10px] font-black transition flex items-center gap-1 ${
+                  currentFit === 'contain'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-white/20 hover:bg-white/30 text-white'
+                }`}
+              >
+                <span>{currentFit === 'contain' ? 'كاملة 100%' : 'ملء'}</span>
+              </button>
+
+              {/* Fullscreen Zoom */}
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(true)}
+                title="تكبير الصورة بالحجم الكامل"
+                className="p-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white transition"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Main Image Frame */}
+            <div 
+              onClick={() => setIsFullscreen(true)}
+              className={`${getAspectClass()} relative overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100 flex items-center justify-center cursor-zoom-in transition-all duration-300`}
+            >
+              {/* Ambient Blurred Background (Shows behind full image for premium look) */}
+              {currentFit === 'contain' && currentImage.url && (
+                <div 
+                  className="absolute inset-0 bg-cover bg-center blur-2xl opacity-25 scale-125 pointer-events-none transition-all duration-700"
+                  style={{ backgroundImage: `url(${currentImage.url})` }}
+                />
+              )}
+
+              {/* The Actual Product / Infographic Image */}
               <img
                 src={currentImage.url}
-                alt={currentImage.alt}
+                alt={currentImage.alt || currentImage.title}
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                className={`w-full h-full relative z-10 transition-all duration-300 ${
+                  currentFit === 'cover'
+                    ? 'object-cover group-hover:scale-105'
+                    : 'object-contain p-2 sm:p-3 group-hover:scale-[1.02] drop-shadow-md'
+                }`}
               />
 
+              {/* Left/Right Navigation Arrows (Visible on hover or mobile) */}
+              {imagesToDisplay.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevImage();
+                    }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-800 shadow-md flex items-center justify-center opacity-80 hover:opacity-100 transition"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextImage();
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-800 shadow-md flex items-center justify-center opacity-80 hover:opacity-100 transition"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
 
+              {/* Bottom Image Counter */}
+              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full pointer-events-none">
+                {activeImageIndex + 1} / {imagesToDisplay.length}
+              </div>
             </div>
           </div>
 
           {/* Gallery Thumbnails */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 sm:gap-2.5">
             {imagesToDisplay.map((img, idx) => (
               <button
                 key={img.id || idx}
                 onClick={() => setActiveImageIndex(idx)}
-                className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition ${
+                className={`relative aspect-[3/4] sm:aspect-square rounded-2xl overflow-hidden border-2 transition bg-slate-50 ${
                   activeImageIndex === idx
                     ? 'border-emerald-600 ring-2 ring-emerald-500/30 scale-95 shadow-md'
                     : 'border-gray-200 hover:border-gray-300 opacity-80 hover:opacity-100'
@@ -107,14 +232,77 @@ export const HeroProduct: React.FC<HeroProductProps> = ({
                   src={img.url}
                   alt={img.title}
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain p-1"
                 />
-                <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] py-0.5 text-center font-medium truncate px-1">
-                  {img.title}
+                <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[8px] py-0.5 text-center font-medium truncate px-0.5">
+                  {idx + 1}
                 </span>
               </button>
             ))}
           </div>
+
+          {/* Fullscreen Lightbox / Zoom Modal */}
+          {isFullscreen && (
+            <div 
+              className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 animate-in fade-in"
+              onClick={() => setIsFullscreen(false)}
+            >
+              {/* Top Bar */}
+              <div className="w-full flex items-center justify-between text-white z-10 px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                <div className="text-xs font-bold text-slate-300">
+                  {currentImage.title || `صورة المنتج ${activeImageIndex + 1}`} ({activeImageIndex + 1}/{imagesToDisplay.length})
+                </div>
+                <button
+                  onClick={() => setIsFullscreen(false)}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Center Image */}
+              <div className="relative flex-1 w-full max-w-4xl flex items-center justify-center p-2" onClick={(e) => e.stopPropagation()}>
+                <img
+                  src={currentImage.url}
+                  alt={currentImage.title}
+                  referrerPolicy="no-referrer"
+                  className="max-h-[82vh] max-w-full object-contain rounded-2xl shadow-2xl drop-shadow-2xl"
+                />
+
+                {imagesToDisplay.length > 1 && (
+                  <>
+                    <button
+                      onClick={handlePrevImage}
+                      className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 hover:bg-black/80 text-white transition"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={handleNextImage}
+                      className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 hover:bg-black/80 text-white transition"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Bottom Thumbnails in Lightbox */}
+              <div className="flex items-center gap-2 overflow-x-auto max-w-full p-2 z-10" onClick={(e) => e.stopPropagation()}>
+                {imagesToDisplay.map((img, idx) => (
+                  <button
+                    key={img.id || idx}
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`w-12 h-16 rounded-lg overflow-hidden border-2 shrink-0 transition ${
+                      activeImageIndex === idx ? 'border-emerald-400 scale-105' : 'border-white/30 opacity-60'
+                    }`}
+                  >
+                    <img src={img.url} alt="" className="w-full h-full object-contain bg-black/40" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
 
 

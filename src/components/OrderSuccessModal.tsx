@@ -27,15 +27,15 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
   };
 
   const whatsappMessage = encodeURIComponent(
-    `Hello! I just placed an order on your store:\n\n` +
-    `📦 Order #: ${order.orderNumber}\n` +
-    `👤 Name: ${order.customerName}\n` +
-    `📱 Phone: ${order.phone}\n` +
-    `📍 City: ${order.city}\n` +
-    `🏠 Address: ${order.address}\n` +
-    `🛍️ Package: ${order.bundle.title}\n` +
-    `💵 Total Cash Amount: ${formatPrice(order.totalMAD, currency)}\n\n` +
-    `Please confirm my delivery! Thank you.`
+    `السلام عليكم، لقد قمت بطلب جديد عبر الموقع:\n\n` +
+    `📦 رقم الطلب: ${order.orderNumber}\n` +
+    `👤 الاسم الكامل: ${order.customerName}\n` +
+    `📱 رقم الهاتف: ${order.phone}\n` +
+    `📍 المدينة: ${order.city}\n` +
+    `🏠 العنوان: ${order.address}\n` +
+    `🛍️ الباقة المختارة: ${order.bundle.title}\n` +
+    `💵 المبلغ الإجمالي: ${formatPrice(order.totalMAD, currency)} (الدفع عند الاستلام)\n\n` +
+    `المرجو تأكيد الإرسال والشحن في أقرب وقت. شكراً لكم!`
   );
 
   return (
@@ -148,10 +148,15 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
             href={`https://wa.me/${theme.whatsappNumber || '212600000000'}?text=${whatsappMessage}`}
             target="_blank"
             rel="noreferrer"
-            className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm transition shadow-lg flex items-center justify-center gap-2"
+            className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-extrabold text-sm transition shadow-lg hover:shadow-xl flex flex-col items-center justify-center gap-1 text-center group"
           >
-            <PhoneCall className="w-4 h-4" />
-            <span>FAST-TRACK ON WHATSAPP FOR IMMEDIATE DISPATCH</span>
+            <div className="flex items-center gap-2 text-sm sm:text-base">
+              <PhoneCall className="w-5 h-5 animate-bounce" />
+              <span>💬 تأكيد الطلب فوراً عبر الواتساب (WhatsApp)</span>
+            </div>
+            <span className="text-[11px] text-emerald-100 font-medium">
+              اضغط هنا لإرسال بيانات طلبك للبائع وتأكيد الشحن الفوري
+            </span>
           </a>
 
           <button

@@ -39,8 +39,8 @@
   ],
   "theme": {
     "preset": "rosegold",
-    "primaryColor": "#be185d",
-    "accentColor": "#b3098e",
+    "primaryColor": "#ff75af",
+    "accentColor": "#ffb3eb",
     "bgColor": "#fff1f2",
     "textColor": "#2D332D",
     "cardBg": "#ffffff",
@@ -58,11 +58,14 @@
     "freeShippingThresholdMAD": 300,
     "logoText": "vola.ma",
     "logoUrl": "",
-    "whatsappNumber": "212600000000",
-    "productTitle": "موس الشعر بالصبار وزيت التين الشوكي – بدون غسل",
+    "whatsappNumber": "212767589372",
+    "productTitle": "HYDRA glow",
     "productSubtitle": "رغوة نباتية خفيفة ترطب وتفك التشابك وتمنح لمعاناً حريرياً بدون أي دهون أو قشور",
     "productBadge": "الأكثر طلباً ومبيعاً في المغرب 🇲🇦",
-    "stockAlertText": "فقط 14 عبوة متبقية في المخزون!"
+    "stockAlertText": "فقط 14 عبوة متبقية في المخزون!",
+    "imageFit": "contain",
+    "imageAspectRatio": "9:16",
+    "showBeforeAfter": false
   },
   "bundles": [
     {
@@ -163,6 +166,21 @@
     }
   ],
   "orders": [
+    {
+      "id": "test-1",
+      "customerName": "Test Client",
+      "phone": "0612345678",
+      "city": "Rabat",
+      "address": "Hay Riad",
+      "bundle": {
+        "id": "b1",
+        "title": "Pack 1",
+        "priceMAD": 199
+      },
+      "totalMAD": 199,
+      "paymentMethod": "cod",
+      "orderNumber": "PB-999999"
+    },
     {
       "id": "ord-101",
       "orderNumber": "PB-482910",

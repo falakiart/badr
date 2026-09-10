@@ -4,7 +4,7 @@ import {
   Search, Filter, Plus, Phone, MapPin, DollarSign, Download, Sparkles, Eye, RefreshCw,
   Lock, User, KeyRound, LogOut, ShieldCheck, MessageSquare, Star, CheckCircle2, MessageSquarePlus, Edit3, Save,
   Video, Play, Film, ExternalLink, Repeat, Volume2, Upload, FolderUp, FileVideo, FileImage, ArrowUpRight,
-  Package, Type, FileText, Flame, Copy
+  Package, Type, FileText, Flame, Copy, Scan, Maximize2
 } from 'lucide-react';
 import { BundleOffer, CODOrder, Currency, GalleryImage, Review, ThemeConfig, ThemePreset } from '../types';
 import { formatPrice } from '../data/productData';
@@ -1589,6 +1589,110 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     </div>
                   </div>
 
+                  {/* Image Aspect Ratio & Display Mode Controls */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
+                          <Scan className="w-4 h-4 text-emerald-600" />
+                          <span>أبعاد وحجم عرض صور المنتج (Aspect Ratio & Image Fit)</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          اختر المقاس المناسب لصورك لمنع قص الصورة وإظهار البوتيك والإنفوجرافيك كاملاً
+                        </p>
+                      </div>
+
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full w-fit">
+                        الحالي: {theme.imageAspectRatio || '9:16'} ({theme.imageFit === 'cover' ? 'ملء الإطار' : 'كاملة 100%'})
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Aspect Ratio Picker */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-extrabold text-slate-700 block">
+                          1. مقاس الإطار (Aspect Ratio):
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { value: '9:16', label: '9:16 (طولي كامل)', sub: 'مثالي للإنفوجرافيك وصور الهاتف' },
+                            { value: '4:5', label: '4:5 (بورتريه متوازن)', sub: 'مقاس إنستغرام الكلاسيكي' },
+                            { value: '1:1', label: '1:1 (مربع)', sub: 'مقاس متساوي الأضلاع' },
+                            { value: '16:9', label: '16:9 (عرضي)', sub: 'مقاس الشاشات الأفقية' },
+                          ].map((item) => {
+                            const isSelected = (theme.imageAspectRatio || '9:16') === item.value;
+                            return (
+                              <button
+                                key={item.value}
+                                type="button"
+                                onClick={() => onUpdateTheme({ imageAspectRatio: item.value as any })}
+                                className={`p-2.5 rounded-xl border-2 text-right transition flex flex-col justify-between ${
+                                  isSelected
+                                    ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-black shadow-sm ring-1 ring-emerald-500'
+                                    : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
+                                }`}
+                              >
+                                <div className="text-xs font-black flex items-center justify-between">
+                                  <span>{item.label}</span>
+                                  {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-1">{item.sub}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Image Fit Mode Picker */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-extrabold text-slate-700 block">
+                          2. طريقة ملاءمة الصورة (Image Fit Mode):
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onUpdateTheme({ imageFit: 'contain' })}
+                            className={`p-3 rounded-xl border-2 text-right transition flex flex-col justify-between ${
+                              (theme.imageFit || 'contain') === 'contain'
+                                ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-black shadow-sm ring-1 ring-emerald-500'
+                                : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
+                            }`}
+                          >
+                            <div className="text-xs font-black flex items-center justify-between">
+                              <span>✅ إظهار الصورة كاملة (Contain)</span>
+                              {(theme.imageFit || 'contain') === 'contain' && (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-1">
+                              بدون أي قص إطلاقاً! تظهر القنينة وكل النصوص بوضوح مع خلفية ضبابية أنيقة
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onUpdateTheme({ imageFit: 'cover' })}
+                            className={`p-3 rounded-xl border-2 text-right transition flex flex-col justify-between ${
+                              theme.imageFit === 'cover'
+                                ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-black shadow-sm ring-1 ring-emerald-500'
+                                : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
+                            }`}
+                          >
+                            <div className="text-xs font-black flex items-center justify-between">
+                              <span>🔲 ملء كامل الإطار (Cover)</span>
+                              {theme.imageFit === 'cover' && (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-1">
+                              تمدد الصورة لملء كل المساحة (قد يتم قص أطراف الصورة الرأسية)
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Active Gallery Images with direct change buttons */}
                   <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/80 border border-emerald-200 p-4 rounded-2xl">
@@ -2193,6 +2297,19 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                       type="checkbox"
                       checked={theme.showStickyBar}
                       onChange={(e) => onUpdateTheme({ showStickyBar: e.target.checked })}
+                      className="w-4 h-4 accent-emerald-600 rounded"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                    <div>
+                      <span className="font-bold text-slate-800 block">إظهار قسم قبل وبعد (Before & After Slider)</span>
+                      <span className="text-[10px] text-slate-400">ميزة مقارنة النتيجة قبل وبعد استخدام المنتج</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={theme.showBeforeAfter || false}
+                      onChange={(e) => onUpdateTheme({ showBeforeAfter: e.target.checked })}
                       className="w-4 h-4 accent-emerald-600 rounded"
                     />
                   </label>

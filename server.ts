@@ -127,6 +127,9 @@ const defaultStore = {
     productSubtitle: "رغوة نباتية خفيفة ترطب وتفك التشابك وتمنح لمعاناً حريرياً بدون أي دهون أو قشور",
     productBadge: "الأكثر طلباً ومبيعاً في المغرب 🇲🇦",
     stockAlertText: "فقط 14 عبوة متبقية في المخزون!",
+    imageFit: "contain",
+    imageAspectRatio: "9:16",
+    showBeforeAfter: false,
   },
   bundles: [
     {

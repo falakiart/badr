@@ -94,6 +94,9 @@ export interface ThemeConfig {
   productSubtitle?: string;
   productBadge?: string;
   stockAlertText?: string;
+  imageFit?: 'contain' | 'cover';
+  imageAspectRatio?: '9:16' | '4:5' | '1:1' | '16:9';
+  showBeforeAfter?: boolean;
 }
 
 export interface SiteData {

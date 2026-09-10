@@ -95,6 +95,9 @@ export default function App() {
       logoText: 'vola.ma',
       logoUrl: '',
       whatsappNumber: '212600000000',
+      imageFit: 'contain',
+      imageAspectRatio: '9:16',
+      showBeforeAfter: false,
     };
     return saved ? { ...defaultTheme, ...JSON.parse(saved) } : defaultTheme;
   });
@@ -453,8 +456,8 @@ export default function App() {
         {/* 4. Ingredient Spotlight: Cactus Oil & Aloe Vera */}
         <IngredientSpotlight language={language} theme={theme} />
 
-        {/* 4. Interactive Before & After Transformation Slider */}
-        <BeforeAfterSlider language={language} />
+        {/* 4. Interactive Before & After Transformation Slider (Hidden by default) */}
+        {theme.showBeforeAfter && <BeforeAfterSlider language={language} />}
 
         {/* 5. How To Use Step-by-Step Cards */}
         <HowToUse language={language} />
