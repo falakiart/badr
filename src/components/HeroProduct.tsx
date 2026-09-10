@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Star, ShieldCheck, Truck, RotateCcw, Flame, Check, Sparkles, Clock, Droplets, Leaf, Heart, Share2, Award } from 'lucide-react';
 import { BundleOffer, Currency, GalleryImage, Language, ThemeConfig } from '../types';
-import { BUNDLE_OFFERS, formatPrice, PRODUCT_INFO } from '../data/productData';
+import { BUNDLE_OFFERS, DEFAULT_GALLERY_IMAGES, formatPrice, PRODUCT_INFO } from '../data/productData';
 import { getTranslation } from '../data/translations';
 
 interface HeroProductProps {
@@ -15,33 +15,6 @@ interface HeroProductProps {
   galleryImages?: GalleryImage[];
   bundles?: BundleOffer[];
 }
-
-const DEFAULT_GALLERY_IMAGES: GalleryImage[] = [
-  {
-    id: 'g1',
-    title: 'Product Bottle',
-    url: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&q=80&w=1000',
-    alt: 'Leave-In Hair Mousse Bottle Cactus Oil & Aloe Vera'
-  },
-  {
-    id: 'g2',
-    title: 'Texture & Foam',
-    url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&q=80&w=1000',
-    alt: 'Lightweight foam texture dispensed in palm'
-  },
-  {
-    id: 'g3',
-    title: 'Natural Ingredients',
-    url: 'https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?auto=format&fit=crop&q=80&w=1000',
-    alt: 'Prickly pear cactus fruit and fresh aloe vera leaves'
-  },
-  {
-    id: 'g4',
-    title: 'Hair Result',
-    url: 'https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&q=80&w=1000',
-    alt: 'Hydrated glossy waves without frizz'
-  }
-];
 
 export const HeroProduct: React.FC<HeroProductProps> = ({
   currency,
@@ -59,7 +32,15 @@ export const HeroProduct: React.FC<HeroProductProps> = ({
   const [timeLeft, setTimeLeft] = useState({ hours: 3, minutes: 42, seconds: 15 });
 
   const imagesToDisplay = galleryImages && galleryImages.length > 0 ? galleryImages : DEFAULT_GALLERY_IMAGES;
-  const currentImage = imagesToDisplay[activeImageIndex] || imagesToDisplay[0];
+  
+  // Keep active index in bounds
+  useEffect(() => {
+    if (activeImageIndex >= imagesToDisplay.length) {
+      setActiveImageIndex(0);
+    }
+  }, [imagesToDisplay.length, activeImageIndex]);
+
+  const currentImage = imagesToDisplay[activeImageIndex] || imagesToDisplay[0] || { url: '', alt: '' };
 
   // Urgency Timer Tick
   useEffect(() => {
@@ -161,18 +142,26 @@ export const HeroProduct: React.FC<HeroProductProps> = ({
               {theme.showStockTimer && (
                 <div className="flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                  <span>Only 14 Left in Stock!</span>
+                  <span>{theme.stockAlertText || "Only 14 Left in Stock!"}</span>
                 </div>
               )}
             </div>
 
+            {/* Product Highlight Badge if configured */}
+            {theme.productBadge && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-sm">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                <span>{theme.productBadge}</span>
+              </div>
+            )}
+
             {/* Main Product Title */}
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-900 tracking-tight leading-tight">
-              {t.productTitle}
+              {theme.productTitle || t.productTitle}
             </h1>
 
             <p className="text-sm sm:text-base text-gray-600 font-medium">
-              {t.productSubtitle}
+              {theme.productSubtitle || t.productSubtitle}
             </p>
           </div>
 

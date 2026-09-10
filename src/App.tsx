@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BundleOffer, CODOrder, Currency, GalleryImage, Language, Review, ThemeConfig } from './types';
 import { Header } from './components/Header';
 import { WordPressCustomizer } from './components/WordPressCustomizer';
@@ -17,7 +17,7 @@ import { StickyMobileBar } from './components/StickyMobileBar';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
 import { Footer } from './components/Footer';
-import { BUNDLE_OFFERS, REVIEWS_DATA, DEFAULT_PRODUCT_VIDEO } from './data/productData';
+import { BUNDLE_OFFERS, REVIEWS_DATA, DEFAULT_PRODUCT_VIDEO, DEFAULT_GALLERY_IMAGES } from './data/productData';
 import { getStoredMediaBlobUrl } from './utils/mediaStorage';
 import { fetchSiteData, saveSiteData, submitOrderToServer } from './utils/apiSync';
 
@@ -67,33 +67,6 @@ const INITIAL_SAMPLE_ORDERS: CODOrder[] = [
   }
 ];
 
-const INITIAL_GALLERY_IMAGES: GalleryImage[] = [
-  {
-    id: 'g1',
-    title: 'Product Bottle',
-    url: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&q=80&w=1000',
-    alt: 'Leave-In Hair Mousse Bottle Cactus Oil & Aloe Vera'
-  },
-  {
-    id: 'g2',
-    title: 'Texture & Foam',
-    url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&q=80&w=1000',
-    alt: 'Lightweight foam texture dispensed in palm'
-  },
-  {
-    id: 'g3',
-    title: 'Natural Ingredients',
-    url: 'https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?auto=format&fit=crop&q=80&w=1000',
-    alt: 'Prickly pear cactus fruit and fresh aloe vera leaves'
-  },
-  {
-    id: 'g4',
-    title: 'Hair Result',
-    url: 'https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&q=80&w=1000',
-    alt: 'Hydrated glossy waves without frizz'
-  }
-];
-
 export default function App() {
   const [currency, setCurrency] = useState<Currency>('MAD');
   const [language, setLanguage] = useState<Language>('EN');
@@ -137,7 +110,7 @@ export default function App() {
 
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>(() => {
     const saved = localStorage.getItem('phytobotanica_gallery');
-    return saved ? JSON.parse(saved) : INITIAL_GALLERY_IMAGES;
+    return saved ? JSON.parse(saved) : DEFAULT_GALLERY_IMAGES;
   });
 
   const [orders, setOrders] = useState<CODOrder[]>(() => {
@@ -175,30 +148,77 @@ export default function App() {
     localStorage.setItem('phytobotanica_theme', JSON.stringify(theme));
   }, [theme]);
 
-  // Restore persistent data from central server on startup
-  useEffect(() => {
-    fetchSiteData().then((serverData) => {
+  // Restore persistent data from central server on startup and keep in sync
+  const syncWithServer = useCallback(async () => {
+    try {
+      const serverData = await fetchSiteData();
       if (serverData) {
         if (serverData.galleryImages && Array.isArray(serverData.galleryImages) && serverData.galleryImages.length > 0) {
           setGalleryImages(serverData.galleryImages);
+          try {
+            localStorage.setItem('phytobotanica_gallery', JSON.stringify(serverData.galleryImages));
+          } catch (e) {}
         }
         if (serverData.theme) {
-          setTheme((prev) => ({ ...prev, ...serverData.theme }));
+          setTheme((prev) => {
+            const merged = { ...prev, ...serverData.theme };
+            try {
+              localStorage.setItem('phytobotanica_theme', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
         }
         if (serverData.bundles && Array.isArray(serverData.bundles) && serverData.bundles.length > 0) {
           setBundles(serverData.bundles);
+          try {
+            localStorage.setItem('phytobotanica_bundles', JSON.stringify(serverData.bundles));
+          } catch (e) {}
         }
         if (serverData.reviewsList && Array.isArray(serverData.reviewsList) && serverData.reviewsList.length > 0) {
           setReviewsList(serverData.reviewsList);
+          try {
+            localStorage.setItem('phytobotanica_reviews', JSON.stringify(serverData.reviewsList));
+          } catch (e) {}
         }
         if (serverData.orders && Array.isArray(serverData.orders) && serverData.orders.length > 0) {
           setOrders(serverData.orders);
+          try {
+            localStorage.setItem('phytobotanica_orders', JSON.stringify(serverData.orders));
+          } catch (e) {}
         }
       }
-    }).catch((err) => {
-      console.warn('Initial server sync error:', err);
-    });
+    } catch (err) {
+      console.warn('Sync error:', err);
+    }
   }, []);
+
+  // 1. Initial sync on startup
+  useEffect(() => {
+    syncWithServer();
+  }, [syncWithServer]);
+
+  // 2. Sync whenever window or tab regains focus
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncWithServer();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
+  }, [syncWithServer]);
+
+  // 3. Periodic real-time poll every 4 seconds so changes propagate live across devices
+  useEffect(() => {
+    const interval = setInterval(() => {
+      syncWithServer();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [syncWithServer]);
 
   // Restore persistent uploaded video from IndexedDB if exists (offline fallback)
   useEffect(() => {
@@ -221,19 +241,28 @@ export default function App() {
     document.documentElement.lang = language.toLowerCase();
   }, [language]);
 
-  const handleUpdateGalleryImages = (images: GalleryImage[]) => {
+  const handleUpdateGalleryImages = async (images: GalleryImage[]) => {
     setGalleryImages(images);
-    saveSiteData({ galleryImages: images });
+    try {
+      localStorage.setItem('phytobotanica_gallery', JSON.stringify(images));
+    } catch (e) {}
+    return await saveSiteData({ galleryImages: images });
   };
 
   const handleUpdateBundles = (newBundles: BundleOffer[]) => {
     setBundles(newBundles);
+    try {
+      localStorage.setItem('phytobotanica_bundles', JSON.stringify(newBundles));
+    } catch (e) {}
     saveSiteData({ bundles: newBundles });
   };
 
   const handleAddReview = (newReview: Review) => {
     setReviewsList((prev) => {
       const next = [newReview, ...prev];
+      try {
+        localStorage.setItem('phytobotanica_reviews', JSON.stringify(next));
+      } catch (e) {}
       saveSiteData({ reviewsList: next });
       return next;
     });
@@ -242,17 +271,24 @@ export default function App() {
   const handleDeleteReview = (reviewId: string) => {
     setReviewsList((prev) => {
       const next = prev.filter((r) => r.id !== reviewId);
+      try {
+        localStorage.setItem('phytobotanica_reviews', JSON.stringify(next));
+      } catch (e) {}
       saveSiteData({ reviewsList: next });
       return next;
     });
   };
 
-  const handleUpdateTheme = (updated: Partial<ThemeConfig>) => {
+  const handleUpdateTheme = async (updated: Partial<ThemeConfig>) => {
+    let nextTheme: ThemeConfig = { ...theme, ...updated };
     setTheme((prev) => {
-      const nextTheme = { ...prev, ...updated };
-      saveSiteData({ theme: nextTheme });
+      nextTheme = { ...prev, ...updated };
+      try {
+        localStorage.setItem('phytobotanica_theme', JSON.stringify(nextTheme));
+      } catch (e) {}
       return nextTheme;
     });
+    return await saveSiteData({ theme: nextTheme });
   };
 
   const handleScrollToOrderForm = () => {

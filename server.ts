@@ -8,9 +8,13 @@ const app = express();
 const PORT = 3000;
 
 // Setup directories for uploads and persistent data
-const uploadsDir = path.join(process.cwd(), "uploads");
+const publicDir = path.join(process.cwd(), "public");
+const uploadsDir = path.join(publicDir, "uploads");
 const dataDir = path.join(process.cwd(), "data");
 
+if (!fs.existsSync(publicDir)) {
+  fs.mkdirSync(publicDir, { recursive: true });
+}
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -43,7 +47,16 @@ app.use(express.json({ limit: "120mb" }));
 app.use(express.urlencoded({ extended: true, limit: "120mb" }));
 
 // Serve uploaded static files publicly for all site visitors
-app.use("/uploads", express.static(uploadsDir));
+app.use(
+  "/uploads",
+  express.static(uploadsDir, {
+    maxAge: "1d",
+    setHeaders: (res) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  })
+);
 
 // File path for site store
 const STORE_FILE = path.join(dataDir, "site-data.json");
@@ -52,28 +65,40 @@ const STORE_FILE = path.join(dataDir, "site-data.json");
 const defaultStore = {
   galleryImages: [
     {
-      id: "g1",
-      title: "Product Bottle",
-      url: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&q=80&w=1000",
-      alt: "Leave-In Hair Mousse Bottle Cactus Oil & Aloe Vera",
+      id: "uploaded-1",
+      title: "موس الشعر بالصبار وزيت التين الشوكي",
+      url: "/uploads/Hair_mousse_bottle_hero-style_2K_202607281816_1789046264302-804619.jpg",
+      alt: "موس الشعر بالصبار وزيت التين الشوكي - العبوة الأصلية",
     },
     {
-      id: "g2",
-      title: "Texture & Foam",
-      url: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&q=80&w=1000",
-      alt: "Lightweight foam texture dispensed in palm",
+      id: "uploaded-2",
+      title: "موس الشعر على قاعدة أنيقة",
+      url: "/uploads/Hair_mousse_bottle_on_pedestal_202607281817_1789046264473-266232.jpg",
+      alt: "تصوير احترافي لعبوة موس الشعر",
     },
     {
-      id: "g3",
-      title: "Natural Ingredients",
-      url: "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?auto=format&fit=crop&q=80&w=1000",
-      alt: "Prickly pear cactus fruit and fresh aloe vera leaves",
+      id: "uploaded-3",
+      title: "دليل الفوائد والمكونات الطبيعية",
+      url: "/uploads/Hair_mousse_infographic_product_____202607291024_1789046264640-227464.jpg",
+      alt: "انفوجرافيك مميزات وفوائد موس الشعر الطبيعي",
     },
     {
-      id: "g4",
-      title: "Hair Result",
-      url: "https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&q=80&w=1000",
-      alt: "Hydrated glossy waves without frizz",
+      id: "uploaded-4",
+      title: "تصوير واقعي للمنتج",
+      url: "/uploads/Hair_mousse_product_photography_____202607281816_1789046264775-625337.jpg",
+      alt: "تصوير واقعي لموس الشعر النباتي",
+    },
+    {
+      id: "uploaded-5",
+      title: "طريقة الاستعمال والترطيب",
+      url: "/uploads/Infographic_for_hair_mousse_2K_202607291024_1789046264917-197344.jpg",
+      alt: "انفوجرافيك طريقة استعمال رغوة موس الشعر",
+    },
+    {
+      id: "uploaded-6",
+      title: "رغوة ترطيب فائقة",
+      url: "/uploads/Infographic_for_Mousse_Hydratante_2K_202607291033_1789046265061-757734.jpg",
+      alt: "انفوجرافيك الرغوة المرطبة بالتين الشوكي",
     },
   ],
   theme: {
@@ -98,6 +123,10 @@ const defaultStore = {
     logoText: "vola.ma",
     logoUrl: "",
     whatsappNumber: "212600000000",
+    productTitle: "موس الشعر بالصبار وزيت التين الشوكي – بدون غسل",
+    productSubtitle: "رغوة نباتية خفيفة ترطب وتفك التشابك وتمنح لمعاناً حريرياً بدون أي دهون أو قشور",
+    productBadge: "الأكثر طلباً ومبيعاً في المغرب 🇲🇦",
+    stockAlertText: "فقط 14 عبوة متبقية في المخزون!",
   },
   bundles: [
     {
@@ -231,7 +260,15 @@ function readStore() {
   try {
     if (fs.existsSync(STORE_FILE)) {
       const data = fs.readFileSync(STORE_FILE, "utf-8");
-      return { ...defaultStore, ...JSON.parse(data) };
+      const parsed = JSON.parse(data);
+      return {
+        ...defaultStore,
+        ...parsed,
+        theme: {
+          ...defaultStore.theme,
+          ...(parsed.theme || {}),
+        },
+      };
     }
   } catch (err) {
     console.error("Error reading site store:", err);
@@ -242,6 +279,9 @@ function readStore() {
 function writeStore(data: any) {
   try {
     fs.writeFileSync(STORE_FILE, JSON.stringify(data, null, 2), "utf-8");
+    // Also save to public/site-data.json so static deployments (GitHub & Vercel) have it
+    const publicStoreFile = path.join(publicDir, "site-data.json");
+    fs.writeFileSync(publicStoreFile, JSON.stringify(data, null, 2), "utf-8");
     return true;
   } catch (err) {
     console.error("Error writing site store:", err);
@@ -263,10 +303,15 @@ app.get("/api/health", (req, res) => {
 
 // GET site data: Available for EVERY visitor across all devices
 app.get("/api/site-data", (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
   const store = readStore();
   res.json({
     success: true,
     data: store,
+    timestamp: Date.now(),
   });
 });
 
@@ -279,7 +324,8 @@ app.post("/api/site-data", (req, res) => {
       ...req.body,
     };
     writeStore(updated);
-    res.json({ success: true, message: "Site data updated successfully for all visitors" });
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.json({ success: true, message: "Site data updated successfully for all visitors", data: updated });
   } catch (err) {
     res.status(500).json({ success: false, error: "Failed to update site data" });
   }

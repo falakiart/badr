@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Check, Settings2, Sparkles, Layout, Flame, Bell, Phone } from 'lucide-react';
+import { X, Check, Settings2, Sparkles, Layout, Flame, Bell, Phone, Package, Type } from 'lucide-react';
 import { ThemeConfig, ThemePreset } from '../types';
 
 interface WordPressCustomizerProps {
@@ -122,6 +122,69 @@ export const WordPressCustomizer: React.FC<WordPressCustomizerProps> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Product Name & Subtitle Customizer */}
+          <div className="space-y-3 p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200">
+            <label className="text-xs font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+              <Package className="w-4 h-4 text-emerald-700" />
+              <span>اسم وتفاصيل المنتج (Product Name & Info)</span>
+            </label>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                  <span>اسم المنتج الرئيسي (Titre du produit)</span>
+                  <span className="text-[10px] text-emerald-800 font-bold">H1 Title</span>
+                </label>
+                <input
+                  type="text"
+                  value={theme.productTitle ?? ''}
+                  onChange={(e) => onUpdateTheme({ productTitle: e.target.value })}
+                  placeholder="موس الشعر بالصبار وزيت التين الشوكي – بدون غسل"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs font-bold text-slate-900 bg-white shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  الوصف الترويجي المختصر (Sous-titre)
+                </label>
+                <textarea
+                  rows={2}
+                  value={theme.productSubtitle ?? ''}
+                  onChange={(e) => onUpdateTheme({ productSubtitle: e.target.value })}
+                  placeholder="رغوة نباتية خفيفة ترطب وتفك التشابك وتمنح لمعاناً حريرياً..."
+                  className="w-full p-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs font-medium text-slate-800 bg-white shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  الشارة الترويجية (Badge / Tag)
+                </label>
+                <input
+                  type="text"
+                  value={theme.productBadge ?? ''}
+                  onChange={(e) => onUpdateTheme({ productBadge: e.target.value })}
+                  placeholder="الأكثر طلباً ومبيعاً في المغرب 🇲🇦"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs font-bold text-slate-900 bg-white shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  نص تنبيه المخزون (Stock Urgency)
+                </label>
+                <input
+                  type="text"
+                  value={theme.stockAlertText ?? ''}
+                  onChange={(e) => onUpdateTheme({ stockAlertText: e.target.value })}
+                  placeholder="فقط 14 عبوة متبقية في المخزون!"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs font-bold text-slate-900 bg-white shadow-sm"
+                />
+              </div>
             </div>
           </div>
 

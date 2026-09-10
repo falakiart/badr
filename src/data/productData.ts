@@ -1,4 +1,4 @@
-import { BundleOffer, Currency, CurrencyConfig, FAQItem, Review } from '../types';
+import { BundleOffer, Currency, CurrencyConfig, FAQItem, GalleryImage, Review } from '../types';
 
 export const CURRENCIES: Record<Currency, CurrencyConfig> = {
   MAD: { code: 'MAD', symbol: 'DH', rate: 1, prefix: false },
@@ -285,4 +285,43 @@ export const DEFAULT_PRODUCT_VIDEO = {
   title: 'شاهد طريقة الاستعمال والنتيجة الفورية على الشعر',
   subtitle: 'شاهدي كيف تمنح رغوة الماوس بزيت الصبار والألوفيرا ترطيباً عميقاً ولمعاناً حريرياً بدون دهون في أقل من دقيقة واحدة.',
 };
+
+export const DEFAULT_GALLERY_IMAGES: GalleryImage[] = [
+  {
+    id: "uploaded-1",
+    title: "موس الشعر بالصبار وزيت التين الشوكي",
+    url: "/uploads/Hair_mousse_bottle_hero-style_2K_202607281816_1789046264302-804619.jpg",
+    alt: "موس الشعر بالصبار وزيت التين الشوكي - العبوة الأصلية",
+  },
+  {
+    id: "uploaded-2",
+    title: "موس الشعر على قاعدة أنيقة",
+    url: "/uploads/Hair_mousse_bottle_on_pedestal_202607281817_1789046264473-266232.jpg",
+    alt: "تصوير احترافي لعبوة موس الشعر",
+  },
+  {
+    id: "uploaded-3",
+    title: "دليل الفوائد والمكونات الطبيعية",
+    url: "/uploads/Hair_mousse_infographic_product_____202607291024_1789046264640-227464.jpg",
+    alt: "انفوجرافيك مميزات وفوائد موس الشعر الطبيعي",
+  },
+  {
+    id: "uploaded-4",
+    title: "تصوير واقعي للمنتج",
+    url: "/uploads/Hair_mousse_product_photography_____202607281816_1789046264775-625337.jpg",
+    alt: "تصوير واقعي لموس الشعر النباتي",
+  },
+  {
+    id: "uploaded-5",
+    title: "طريقة الاستعمال والترطيب",
+    url: "/uploads/Infographic_for_hair_mousse_2K_202607291024_1789046264917-197344.jpg",
+    alt: "انفوجرافيك طريقة استعمال رغوة موس الشعر",
+  },
+  {
+    id: "uploaded-6",
+    title: "رغوة ترطيب فائقة",
+    url: "/uploads/Infographic_for_Mousse_Hydratante_2K_202607291033_1789046265061-757734.jpg",
+    alt: "انفوجرافيك الرغوة المرطبة بالتين الشوكي",
+  },
+];
 

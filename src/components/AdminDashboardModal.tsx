@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, ShoppingBag, Image as ImageIcon, Tag, Palette, Check, Trash2, 
   Search, Filter, Plus, Phone, MapPin, DollarSign, Download, Sparkles, Eye, RefreshCw,
   Lock, User, KeyRound, LogOut, ShieldCheck, MessageSquare, Star, CheckCircle2, MessageSquarePlus, Edit3, Save,
-  Video, Play, Film, ExternalLink, Repeat, Volume2, Upload, FolderUp, FileVideo, FileImage, ArrowUpRight
+  Video, Play, Film, ExternalLink, Repeat, Volume2, Upload, FolderUp, FileVideo, FileImage, ArrowUpRight,
+  Package, Type, FileText, Flame, Copy
 } from 'lucide-react';
 import { BundleOffer, CODOrder, Currency, GalleryImage, Review, ThemeConfig, ThemePreset } from '../types';
 import { formatPrice } from '../data/productData';
@@ -111,11 +112,26 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   onAddReview,
   onDeleteReview,
 }) => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'photos' | 'prices' | 'theme' | 'reviews' | 'video'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'product' | 'photos' | 'prices' | 'theme' | 'reviews' | 'video'>('orders');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<CODOrder | null>(null);
   const [editingOrder, setEditingOrder] = useState<CODOrder | null>(null);
+
+  // Product Name & Info state
+  const [productTitleInput, setProductTitleInput] = useState(theme.productTitle || 'موس الشعر بالصبار وزيت التين الشوكي – بدون غسل');
+  const [productSubtitleInput, setProductSubtitleInput] = useState(theme.productSubtitle || 'رغوة نباتية خفيفة ترطب وتفك التشابك وتمنح لمعاناً حريرياً بدون أي دهون أو قشور');
+  const [productBadgeInput, setProductBadgeInput] = useState(theme.productBadge || 'الأكثر طلباً ومبيعاً في المغرب 🇲🇦');
+  const [stockAlertInput, setStockAlertInput] = useState(theme.stockAlertText || 'فقط 14 عبوة متبقية في المخزون!');
+  const [productSaveNotice, setProductSaveNotice] = useState<string | null>(null);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+
+  useEffect(() => {
+    if (theme.productTitle !== undefined) setProductTitleInput(theme.productTitle);
+    if (theme.productSubtitle !== undefined) setProductSubtitleInput(theme.productSubtitle);
+    if (theme.productBadge !== undefined) setProductBadgeInput(theme.productBadge);
+    if (theme.stockAlertText !== undefined) setStockAlertInput(theme.stockAlertText);
+  }, [theme.productTitle, theme.productSubtitle, theme.productBadge, theme.stockAlertText]);
 
   // Media Center Sub-tab state & upload state
   const [mediaSubTab, setMediaSubTab] = useState<'photos' | 'video'>('photos');
@@ -135,6 +151,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [videoAutoplayInput, setVideoAutoplayInput] = useState(theme.videoAutoplay !== false);
   const [videoShowcaseInput, setVideoShowcaseInput] = useState(theme.videoShowcaseMode !== false);
   const [videoSaveNotice, setVideoSaveNotice] = useState(false);
+  const [bundleSaveNotice, setBundleSaveNotice] = useState<string | null>(null);
+  const [themeSaveNotice, setThemeSaveNotice] = useState<string | null>(null);
 
   // Admin Review form state
   const [showAddReviewForm, setShowAddReviewForm] = useState(false);
@@ -154,6 +172,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [usernameInput, setUsernameInput] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
+  const [isSavingGallery, setIsSavingGallery] = useState(false);
+  const [copiedGitCmd, setCopiedGitCmd] = useState(false);
 
   if (!isOpen) return null;
 
@@ -271,6 +291,33 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     onUpdateGalleryImages(updated);
   };
 
+  const handleSaveAllGalleryPhotos = async () => {
+    setIsSavingGallery(true);
+    try {
+      await onUpdateGalleryImages(galleryImages);
+      setPhotoUploadNotice('✅ تم حفظ جميع الصور وتعميمها بنجاح على السيرفر لجميع الزوار الجدد والحاليين!');
+      setTimeout(() => setPhotoUploadNotice(null), 5000);
+    } catch (e) {
+      setPhotoUploadNotice('حدث خطأ أثناء الحفظ، يرجى المحاولة ثانية');
+      setTimeout(() => setPhotoUploadNotice(null), 4000);
+    } finally {
+      setIsSavingGallery(false);
+    }
+  };
+
+  const handleAddBlankPhoto = () => {
+    const newImg: GalleryImage = {
+      id: `img-${Date.now()}`,
+      title: 'صورة جديدة',
+      url: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&q=80&w=1000',
+      alt: 'صورة المنتج',
+    };
+    const updated = [...galleryImages, newImg];
+    onUpdateGalleryImages(updated);
+    setPhotoUploadNotice('تمت إضافة خانة صورة جديدة، يمكنك تعديل عنوانها أو رابطها أو استبدالها من جهازك ثم الضغط على حفظ.');
+    setTimeout(() => setPhotoUploadNotice(null), 4000);
+  };
+
   const handlePhotoFileUpload = async (files: FileList | null, targetIndex?: number) => {
     if (!files || files.length === 0) return;
     setIsUploadingPhoto(true);
@@ -292,8 +339,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           url: photoUrl,
           title: updated[targetIndex].title || file.name.replace(/\.[^/.]+$/, ''),
         };
-        onUpdateGalleryImages(updated);
-        setPhotoUploadNotice(`تم رفع واستبدال الصورة #${targetIndex + 1} وحفظها في السيرفر لجميع الزوار!`);
+        await onUpdateGalleryImages(updated);
+        setPhotoUploadNotice(`✅ تم رفع واستبدال الصورة #${targetIndex + 1} وحفظها في السيرفر لجميع الزوار بنجاح!`);
       } else {
         // Adding new photo(s) to the gallery
         const newImages: GalleryImage[] = [];
@@ -313,8 +360,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             alt: file.name,
           });
         }
-        onUpdateGalleryImages([...galleryImages, ...newImages]);
-        setPhotoUploadNotice(`تم رفع ${newImages.length} صورة وحفظها في السيرفر لجميع الزوار بنجاح!`);
+        await onUpdateGalleryImages([...galleryImages, ...newImages]);
+        setPhotoUploadNotice(`✅ تم رفع ${newImages.length} صورة وحفظها في السيرفر لجميع الزوار بنجاح!`);
       }
       setTimeout(() => setPhotoUploadNotice(null), 5000);
     } catch (err) {
@@ -396,6 +443,39 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     const updated = [...bundles];
     updated[index] = { ...updated[index], [field]: value };
     onUpdateBundles(updated);
+  };
+
+  const handleSaveAllBundles = () => {
+    onUpdateBundles(bundles);
+    setBundleSaveNotice('✅ تم حفظ وتعميم جميع الأسعار والعروض بنجاح على المتجر لجميع الزوار!');
+    setTimeout(() => setBundleSaveNotice(null), 4000);
+  };
+
+  const handleSaveTheme = () => {
+    onUpdateTheme(theme);
+    setThemeSaveNotice('✅ تم حفظ وتعميم إعدادات المظهر والشعار بنجاح على المتجر لجميع الزوار!');
+    setTimeout(() => setThemeSaveNotice(null), 4000);
+  };
+
+  const handleSaveProductInfo = async () => {
+    setIsSavingProduct(true);
+    try {
+      const updatedTheme: ThemeConfig = {
+        ...theme,
+        productTitle: productTitleInput.trim(),
+        productSubtitle: productSubtitleInput.trim(),
+        productBadge: productBadgeInput.trim(),
+        stockAlertText: stockAlertInput.trim(),
+      };
+      await onUpdateTheme(updatedTheme);
+      setProductSaveNotice('✅ تم حفظ وتعميم اسم المنتج وتفاصيله بنجاح لجميع الزوار على الموقع!');
+      setTimeout(() => setProductSaveNotice(null), 5000);
+    } catch (e) {
+      setProductSaveNotice('حدث خطأ أثناء الحفظ، يرجى المحاولة مرة أخرى');
+      setTimeout(() => setProductSaveNotice(null), 4000);
+    } finally {
+      setIsSavingProduct(false);
+    }
   };
 
   const handleExportCSV = () => {
@@ -834,7 +914,19 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>1. Orders / الطلبات ({orders.length})</span>
+            <span>1. الطلبات / Orders ({orders.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('product')}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-2 ${
+              activeTab === 'product'
+                ? 'bg-emerald-700 text-white shadow-md'
+                : 'bg-white text-emerald-900 border border-emerald-300 hover:bg-emerald-50'
+            }`}
+          >
+            <Package className="w-4 h-4 text-emerald-600" />
+            <span>2. اسم وتفاصيل المنتج / Product Info ✍️</span>
           </button>
 
           <button
@@ -846,7 +938,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             }`}
           >
             <ImageIcon className="w-4 h-4" />
-            <span>2. Media / الصور والفيديو (تغيير ورفع)</span>
+            <span>3. الصور والوسائط / Media</span>
           </button>
 
           <button
@@ -858,7 +950,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             }`}
           >
             <Tag className="w-4 h-4" />
-            <span>3. Prices & Bundles / الأسعار</span>
+            <span>4. الأسعار والعروض / Prices</span>
           </button>
 
           <button
@@ -870,7 +962,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             }`}
           >
             <Palette className="w-4 h-4" />
-            <span>4. Theme & Colors / الألوان</span>
+            <span>5. المظهر والشعار / Theme</span>
           </button>
 
           <button
@@ -882,7 +974,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             }`}
           >
             <MessageSquare className="w-4 h-4" />
-            <span>5. Reviews / إدارة الآراء ({reviewsList.length})</span>
+            <span>6. تقييمات الزبائن / Reviews ({reviewsList.length})</span>
           </button>
 
           <button
@@ -894,7 +986,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             }`}
           >
             <Video className="w-4 h-4" />
-            <span>6. Video / رفع وتعديل الفيديو</span>
+            <span>7. الفيديو / Video</span>
           </button>
         </div>
 
@@ -1069,7 +1161,298 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: PHOTOS & MEDIA MANAGEMENT */}
+          {/* TAB 2: PRODUCT TITLE & DETAILS MANAGEMENT */}
+          {activeTab === 'product' && (
+            <div className="space-y-6">
+              {/* Header Action Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-900 to-slate-900 text-white p-5 rounded-3xl shadow-md border border-emerald-800">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-600/30 border border-emerald-400/40 flex items-center justify-center shrink-0">
+                    <Package className="w-6 h-6 text-emerald-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+                      <span>إدارة اسم ومعلومات المنتج الرئيسي</span>
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-bold">
+                        Product Info
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-300 font-medium mt-1">
+                      اكتب هنا اسم المنتج ديالك، الوصف القصير، والشارة الترويجية. أي تغيير كيتحفظ في السيرفر وتشوفوه فوراً لجميع الزوار.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isSavingProduct}
+                    onClick={handleSaveProductInfo}
+                    className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold text-xs shadow-lg transition flex items-center gap-2 shrink-0 active:scale-95"
+                  >
+                    {isSavingProduct ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>جاري الحفظ...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>💾 حفظ وتعميم لجميع الزوار</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Notification Banner */}
+              {productSaveNotice && (
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-extrabold text-xs flex items-center gap-2 shadow-sm animate-fadeIn">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>{productSaveNotice}</span>
+                </div>
+              )}
+
+              {/* Grid: Inputs Form on the Left, Live Customer Preview on the Right */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                {/* Form Fields: 7 Columns */}
+                <div className="lg:col-span-7 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
+                  <div className="border-b border-slate-100 pb-3">
+                    <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                      <Type className="w-4 h-4 text-emerald-600" />
+                      <span>بيانات وتسمية المنتج (Détails du produit)</span>
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      املأ الحقول التالية لتخصيص عنوان وهوية المنتج في صفحة البيع
+                    </p>
+                  </div>
+
+                  {/* 1. Main Product Title */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-black text-slate-800 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Package className="w-4 h-4 text-emerald-600" />
+                        <span>اسم المنتج الرئيسي (Titre du produit) *</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md font-bold">
+                        H1 Title
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={productTitleInput}
+                      onChange={(e) => setProductTitleInput(e.target.value)}
+                      placeholder="مثال: موس الشعر بالصبار وزيت التين الشوكي – بدون غسل"
+                      className="w-full p-3.5 rounded-xl border-2 border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 text-sm font-bold text-slate-900 bg-white transition shadow-sm"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      هذا هو العنوان الأكبر والأكثر وضوحاً في أعلى صفحة الهبوط للزبون.
+                    </p>
+                  </div>
+
+                  {/* 2. Product Subtitle */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-black text-slate-800 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-emerald-600" />
+                        <span>الوصف الترويجي القصير تحت الاسم (Sous-titre / Accroche)</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400">سطر أو سطرين</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={productSubtitleInput}
+                      onChange={(e) => setProductSubtitleInput(e.target.value)}
+                      placeholder="رغوة نباتية خفيفة ترطب وتفك التشابك وتمنح لمعاناً حريرياً بدون أي دهون أو قشور..."
+                      className="w-full p-3 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 text-xs font-medium text-slate-800 bg-white transition shadow-sm leading-relaxed"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      جملة تلخص أبرز فائدة للمنتج وتظهر تحت الاسم مباشرة.
+                    </p>
+                  </div>
+
+                  {/* 3. Product Badge */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span>شارة التمييز الترويجية (Badge / Highlight Tag)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={productBadgeInput}
+                      onChange={(e) => setProductBadgeInput(e.target.value)}
+                      placeholder="مثال: الأكثر طلباً ومبيعاً في المغرب 🇲🇦"
+                      className="w-full p-3 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs font-bold text-slate-900 bg-white transition shadow-sm"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      تظهر كشارة مميزة باللون الأخضر والذهبي أعلى اسم المنتج لزيادة ثقة المشتري.
+                    </p>
+                  </div>
+
+                  {/* 4. Stock Urgency Text */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      <Flame className="w-4 h-4 text-red-500" />
+                      <span>نص تنبيه المخزون المتبقي (Urgency / Stock Scarcity)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={stockAlertInput}
+                      onChange={(e) => setStockAlertInput(e.target.value)}
+                      placeholder="مثال: فقط 14 عبوة متبقية في المخزون!"
+                      className="w-full p-3 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs font-bold text-slate-900 bg-white transition shadow-sm"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      يخلق عنصر الإلحاح والطلب السريع عند الزائر.
+                    </p>
+                  </div>
+
+                  {/* One-click Presets */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                    <span className="text-[11px] font-extrabold text-slate-700 block uppercase tracking-wider">
+                      💡 اقتراحات سريعة لمنتجات شائعة (اضغط لتجربة الاسم):
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductTitleInput("موس الشعر بالصبار وزيت التين الشوكي – بدون غسل");
+                          setProductSubtitleInput("رغوة نباتية خفيفة ترطب وتفك التشابك وتمنح لمعاناً حريرياً بدون أي دهون أو قشور");
+                          setProductBadgeInput("الأكثر طلباً ومبيعاً في المغرب 🇲🇦");
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-emerald-500 text-[11px] font-bold text-slate-700 transition"
+                      >
+                        موس الشعر بالصبار
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductTitleInput("سيروم زيت الأركان الملكي لتغذية وتكثيف الشعر");
+                          setProductSubtitleInput("تركيبة مغربية أصيلة غنية بفيتامين E لمنع التساقط وإصلاح أطراف الشعر المتقصفة");
+                          setProductBadgeInput("طبيعي 100% معتمد وعضوي 🌿");
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-emerald-500 text-[11px] font-bold text-slate-700 transition"
+                      >
+                        سيروم زيت الأركان
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductTitleInput("كريم الكولاجين البحري الطبيعي لنضارة وشد البشرة");
+                          setProductSubtitleInput("ترطيب فائق ومقاومة لعلامات التقدم في السن مع إشراقة فورية ونعومة تدوم 24 ساعة");
+                          setProductBadgeInput("نتائج مضمونة من أول أسبوع ⭐");
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-emerald-500 text-[11px] font-bold text-slate-700 transition"
+                      >
+                        كريم الكولاجين البحري
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Save button */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      disabled={isSavingProduct}
+                      onClick={handleSaveProductInfo}
+                      className="w-full py-3.5 px-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-black text-sm shadow-md transition flex items-center justify-center gap-2"
+                    >
+                      {isSavingProduct ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>جاري الحفظ والتعميم في السيرفر...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span>💾 حفظ وتعميم اسم المنتج الآن لجميع الزوار</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Live Preview Card: 5 Columns */}
+                <div className="lg:col-span-5 space-y-4 sticky top-6">
+                  <div className="bg-white p-5 rounded-3xl shadow-sm border-2 border-emerald-300 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                          معاينة حية للمتجر (Live Preview)
+                        </span>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-extrabold">
+                        كما يظهر للزبون
+                      </span>
+                    </div>
+
+                    {/* Storefront Mockup Box */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                      {/* Rating & Stock */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex items-center text-amber-400">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
+                            ))}
+                          </div>
+                          <span className="text-xs font-extrabold text-slate-900">4.9 / 5.0</span>
+                        </div>
+
+                        {stockAlertInput && (
+                          <div className="flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                            <span>{stockAlertInput}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Product Badge */}
+                      {productBadgeInput && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+                          <Sparkles className="w-3 h-3 text-emerald-700" />
+                          <span>{productBadgeInput}</span>
+                        </div>
+                      )}
+
+                      {/* Main Title Mock */}
+                      <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+                        {productTitleInput || 'اكتب اسم المنتج هنا...'}
+                      </h2>
+
+                      {/* Subtitle Mock */}
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                        {productSubtitleInput || 'اكتب الوصف الترويجي هنا...'}
+                      </p>
+
+                      {/* Price Strip Sample */}
+                      <div className="p-2.5 rounded-xl bg-emerald-100/60 border border-emerald-200 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] text-emerald-800 font-bold">باقة 2 عبوات الأكثر طلباً</div>
+                          <div className="text-sm font-black text-emerald-950">329 درهم</div>
+                        </div>
+                        <span className="text-[10px] bg-amber-500 text-white font-extrabold px-2 py-1 rounded-md">
+                          وفر 45% اليوم
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-slate-700 text-xs flex items-start gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <p className="text-[11px] leading-relaxed">
+                        بمجرد الضغط على <strong>"حفظ وتعميم لجميع الزوار"</strong>، يتم تحديث الاسم فوراً في الواجهة العلوية، ونماذج الطلب، لجميع الهواتف والحواسيب.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: PHOTOS & MEDIA MANAGEMENT */}
           {activeTab === 'photos' && (
             <div className="space-y-6">
               
@@ -1163,16 +1546,91 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     )}
                   </div>
 
+                  {/* GitHub / Vercel deployment helper info card */}
+                  <div className="bg-gradient-to-r from-slate-900 to-emerald-950 text-white p-4 sm:p-5 rounded-2xl shadow-md border border-emerald-500/20 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 text-emerald-300">
+                          ⚡
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-black text-emerald-300 flex items-center gap-1.5">
+                            <span>نشر الصور تلقائياً لـ GitHub & Vercel لجميع الزوار</span>
+                            <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full border border-emerald-500/30">مهم للـ Deployment</span>
+                          </h4>
+                          <p className="text-[11px] sm:text-xs text-slate-300 mt-1 leading-relaxed">
+                            جميع الصور المرفوعة هنا تُحفظ فوراً داخل مجلد <code className="bg-white/10 px-1.5 py-0.5 rounded text-emerald-300 font-mono text-[10px]">public/uploads/</code> وملف <code className="bg-white/10 px-1.5 py-0.5 rounded text-emerald-300 font-mono text-[10px]">public/site-data.json</code>.
+                            لكي تظهر لـ أي زائر جديد في Vercel، يكفي أن ترفع التعديلات إلى مستودع GitHub الخاص بك.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText('git add . && git commit -m "Update store media & data" && git push');
+                          setCopiedGitCmd(true);
+                          setTimeout(() => setCopiedGitCmd(false), 3000);
+                        }}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs transition flex items-center justify-center gap-1.5 shrink-0 shadow"
+                      >
+                        {copiedGitCmd ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                            <span>تم نسخ الأمر! ✅</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>نسخ أمر التحديث لـ GitHub</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Active Gallery Images with direct change buttons */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4 text-emerald-600" />
-                        <span>الصور الحالية على الموقع ({galleryImages.length})</span>
-                      </h3>
-                      <span className="text-[11px] text-slate-500">
-                        يمكنك استبدال أي صورة فوراً من جهازك أو مسحها أو جعلها الصورة الأولى
-                      </span>
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/80 border border-emerald-200 p-4 rounded-2xl">
+                      <div>
+                        <h3 className="text-sm font-black text-emerald-950 uppercase tracking-wider flex items-center gap-2">
+                          <ImageIcon className="w-5 h-5 text-emerald-700" />
+                          <span>صور المنتج المعروضة في المتجر ({galleryImages.length})</span>
+                        </h3>
+                        <p className="text-xs text-emerald-800/80 mt-0.5">
+                          أي تغيير في الصور أو الروابط يمكنك حفظه فوراً ليظهر لجميع الزوار على أي جهاز أو متصفح
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleAddBlankPhoto}
+                          className="px-3 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 font-extrabold text-xs transition flex items-center gap-1.5 shadow-sm"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>+ صورة جديدة</span>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          disabled={isSavingGallery}
+                          onClick={handleSaveAllGalleryPhotos}
+                          className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-black text-xs shadow-md transition flex items-center gap-1.5"
+                        >
+                          {isSavingGallery ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              <span>جاري الحفظ...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>💾 حفظ وتعميم لجميع الزوار</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1220,7 +1678,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                                 className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center text-white text-[10px] font-bold cursor-pointer transition p-1 text-center"
                               >
                                 <Upload className="w-4 h-4 mb-0.5" />
-                                <span>تغيير</span>
+                                <span>تغيير من الجهاز</span>
                               </label>
                               <input
                                 type="file"
@@ -1239,6 +1697,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                                   value={img.title}
                                   onChange={(e) => handleUpdateImage(idx, 'title', e.target.value)}
                                   className="w-full p-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-800"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-0.5">رابط الصورة (URL أو مسار الصورة)</label>
+                                <input
+                                  type="text"
+                                  value={img.url}
+                                  onChange={(e) => handleUpdateImage(idx, 'url', e.target.value)}
+                                  placeholder="https://... أو /uploads/..."
+                                  className="w-full p-2 rounded-lg border border-slate-200 text-[10px] font-mono text-slate-700 bg-slate-50 focus:bg-white"
                                 />
                               </div>
 
@@ -1262,6 +1731,28 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Bottom Save Bar */}
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="button"
+                        disabled={isSavingGallery}
+                        onClick={handleSaveAllGalleryPhotos}
+                        className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-black text-xs shadow-md transition flex items-center gap-2"
+                      >
+                        {isSavingGallery ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>جاري الحفظ في السيرفر...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>💾 حفظ وتعميم جميع الصور الآن لجميع الزوار</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
 
@@ -1306,15 +1797,32 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           {activeTab === 'prices' && (
             <div className="space-y-6">
               
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-xs text-amber-900 flex items-start gap-3">
-                <Tag className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-extrabold">Instant Product Price & Offer Manager</h4>
-                  <p className="mt-0.5 text-amber-800">
-                    Edit pricing for single bottles, duo pack, or buy 2 get 1 free bundle offers. Changes apply live across the whole landing page.
-                  </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50 border border-amber-200 p-4 rounded-2xl">
+                <div className="flex items-start gap-3">
+                  <Tag className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-extrabold text-xs text-amber-950">إدارة الأسعار والعروض / Instant Price & Offer Manager</h4>
+                    <p className="mt-0.5 text-[11px] text-amber-800">
+                      تعديل أسعار الباقات والعروض. يتم حفظها في السيرفر وتعميمها فوراً على جميع زوار الموقع.
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleSaveAllBundles}
+                  className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shadow-md transition flex items-center gap-1.5 shrink-0"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>💾 حفظ وتعميم الأسعار لجميع الزوار</span>
+                </button>
               </div>
+
+              {bundleSaveNotice && (
+                <div className="bg-emerald-100 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>{bundleSaveNotice}</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {bundles.map((bundle, bIdx) => (
@@ -1394,6 +1902,13 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           {activeTab === 'theme' && (
             <div className="space-y-6">
               
+              {themeSaveNotice && (
+                <div className="bg-emerald-100 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>{themeSaveNotice}</span>
+                </div>
+              )}
+
               {/* STORE LOGO & BRAND IDENTITY */}
               <div className="bg-emerald-950/90 text-white p-5 rounded-2xl border border-emerald-800/80 shadow-lg space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1406,9 +1921,14 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                       قم بتغيير اسم المتجر أو رابط صورة الشعار لتظهر في الهيدر وصفحة تسجيل الدخول (Sign In)
                     </p>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Live Logo Customization
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSaveTheme}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md transition flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>💾 حفظ وتعميم الهوية لجميع الزوار</span>
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">

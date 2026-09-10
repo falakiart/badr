@@ -66,11 +66,6 @@ export const ProductVideo: React.FC<ProductVideoProps> = ({
   onScrollToOrder,
   onOpenAdmin,
 }) => {
-  // If explicitly hidden by theme config, don't render
-  if (theme.showVideoSection === false) {
-    return null;
-  }
-
   const isLoop = theme.videoLoop !== false; // Default to true
   const isAutoplay = theme.videoAutoplay !== false; // Default to true
   const isShowcase = theme.videoShowcaseMode !== false; // Default to true for showcase reel (ghir ist3radi)
@@ -153,6 +148,11 @@ export const ProductVideo: React.FC<ProductVideoProps> = ({
   const feature2 = isArabic ? 'خالٍ من الزيوت الثقيلة والقشرة' : isFrench ? 'Zero effet gras ni collant' : 'Zero grease, zero crunch';
   const feature3 = isArabic ? 'نتيجة طبيعية ولمعان فوري' : isFrench ? 'Brillance soyeuse naturelle' : 'Silky natural shine';
   const orderButtonText = isArabic ? 'اطلب الآن - الدفع عند الاستلام' : isFrench ? 'Commander Maintenant (Paiement à la livraison)' : 'Order Now (Cash on Delivery)';
+
+  // If explicitly hidden by theme config, don't render (checked after hooks)
+  if (theme.showVideoSection === false) {
+    return null;
+  }
 
   return (
     <section id="product-video-section" className="py-12 sm:py-16 px-4 max-w-5xl mx-auto">

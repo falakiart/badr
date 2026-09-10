@@ -90,6 +90,10 @@ export interface ThemeConfig {
   logoUrl?: string;
   logoText?: string;
   whatsappNumber?: string;
+  productTitle?: string;
+  productSubtitle?: string;
+  productBadge?: string;
+  stockAlertText?: string;
 }
 
 export interface SiteData {
